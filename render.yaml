@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: fairhire-api
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npm run build --workspace=shared && npm run build --workspace=api
+    startCommand: node api/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false   # set in Render dashboard — app_user pooled connection
+      - key: DIRECT_URL
+        sync: false   # set in Render dashboard — postgres direct connection
+      - key: CLERK_SECRET_KEY
+        sync: false   # set in Render dashboard
+      - key: INTERNAL_API_SECRET
+        sync: false   # set in Render dashboard — generate with: openssl rand -hex 32

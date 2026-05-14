@@ -1,6 +1,8 @@
 node_modules/
 dist/
 shared/dist/
+api/dist/
+web/dist/
 .prisma/
 .env
 .env.local

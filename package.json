@@ -16,7 +16,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "build": "npm run build --workspace=shared && npm run build --workspace=api && npm run build --workspace=web"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
