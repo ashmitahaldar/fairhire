@@ -1,10 +1,236 @@
-// Prisma schema — models added in Step 2
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  manager
+  hr_admin
+}
+
+enum DecisionOutcome {
+  hired
+  rejected
+  in_progress
+}
+
+enum AnalysisStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum FlagType {
+  biased_language
+  criteria_drift
+  asymmetric_concern
+  hedging_language
+  age_bias
+}
+
+enum NationalityStatus {
+  citizen
+  pr
+  ep_holder
+  s_pass
+  other
+}
+
+enum Race {
+  chinese
+  malay
+  indian
+  other
+}
+
+// Enum values cannot start with a digit in Prisma
+enum AgeBand {
+  under_30
+  age_30_39
+  age_40_49
+  age_50_plus
+}
+
+enum Gender {
+  male
+  female
+  non_binary
+  prefer_not_to_say
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model Organisation {
+  id          String   @id @default(uuid())
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  departments  Department[]
+  managers     Manager[]
+  candidates   Candidate[]
+  meetings     Meeting[]
+  decisions    Decision[]
+  flags        Flag[]
+  analysisRuns AnalysisRun[]
+
+  @@map("organisations")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org      Organisation @relation(fields: [orgId], references: [id])
+  managers Manager[]
+
+  @@index([orgId])
+  @@map("departments")
+}
+
+model Manager {
+  id          String   @id @default(uuid())
+  clerkUserId String   @unique @map("clerk_user_id")
+  orgId       String   @map("org_id")
+  deptId      String   @map("dept_id")
+  role        Role     @default(manager)
+  name        String
+  email       String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org           Organisation @relation(fields: [orgId], references: [id])
+  dept          Department   @relation(fields: [deptId], references: [id])
+  meetings      Meeting[]
+  decisions     Decision[]
+  dismissedFlags Flag[]      @relation("DismissedBy")
+
+  @@index([orgId])
+  @@map("managers")
+}
+
+model Candidate {
+  id                       String             @id @default(uuid())
+  orgId                    String             @map("org_id")
+  name                     String
+  roleAppliedFor           String             @map("role_applied_for")
+  nationalityStatus        NationalityStatus? @map("nationality_status")
+  race                     Race?
+  ageBand                  AgeBand?           @map("age_band")
+  gender                   Gender?
+  selfReportedDemographics Json?              @map("self_reported_demographics")
+  createdAt                DateTime           @default(now()) @map("created_at")
+
+  org       Organisation      @relation(fields: [orgId], references: [id])
+  meetings  MeetingCandidate[]
+  decisions Decision[]
+
+  @@index([orgId])
+  @@map("candidates")
+}
+
+model Meeting {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  managerId  String   @map("manager_id")
+  title      String
+  transcript String
+  date       DateTime
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  org          Organisation       @relation(fields: [orgId], references: [id])
+  manager      Manager            @relation(fields: [managerId], references: [id])
+  candidates   MeetingCandidate[]
+  flags        Flag[]
+  decisions    Decision[]
+  analysisRuns AnalysisRun[]
+
+  @@index([managerId])
+  @@index([orgId])
+  @@map("meetings")
+}
+
+model MeetingCandidate {
+  meetingId   String @map("meeting_id")
+  candidateId String @map("candidate_id")
+
+  meeting   Meeting   @relation(fields: [meetingId], references: [id])
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@id([meetingId, candidateId])
+  @@map("meeting_candidates")
+}
+
+model Decision {
+  id          String          @id @default(uuid())
+  orgId       String          @map("org_id")
+  meetingId   String          @map("meeting_id")
+  candidateId String          @map("candidate_id")
+  managerId   String          @map("manager_id")
+  outcome     DecisionOutcome @default(in_progress)
+  notes       String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  org       Organisation @relation(fields: [orgId], references: [id])
+  meeting   Meeting      @relation(fields: [meetingId], references: [id])
+  candidate Candidate    @relation(fields: [candidateId], references: [id])
+  manager   Manager      @relation(fields: [managerId], references: [id])
+
+  @@index([managerId])
+  @@index([orgId])
+  @@map("decisions")
+}
+
+model Flag {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  meetingId       String    @map("meeting_id")
+  flagType        FlagType  @map("flag_type")
+  excerpt         String
+  reasoning       String
+  confidenceScore Float     @map("confidence_score")
+  suggestedAlt    String?   @map("suggested_alt")
+  dismissed       Boolean   @default(false)
+  dismissReason   String?   @map("dismiss_reason")
+  dismissedAt     DateTime? @map("dismissed_at")
+  dismissedBy     String?   @map("dismissed_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  org                Organisation @relation(fields: [orgId], references: [id])
+  meeting            Meeting      @relation(fields: [meetingId], references: [id])
+  dismissedByManager Manager?     @relation("DismissedBy", fields: [dismissedBy], references: [id])
+
+  @@index([meetingId])
+  @@index([orgId])
+  @@map("flags")
+}
+
+model AnalysisRun {
+  id           String         @id @default(uuid())
+  orgId        String         @map("org_id")
+  meetingId    String         @map("meeting_id")
+  status       AnalysisStatus @default(pending)
+  modelVersion String?        @map("model_version")
+  startedAt    DateTime?      @map("started_at")
+  completedAt  DateTime?      @map("completed_at")
+  error        String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  org     Organisation @relation(fields: [orgId], references: [id])
+  meeting Meeting      @relation(fields: [meetingId], references: [id])
+
+  @@index([meetingId])
+  @@index([orgId])
+  @@map("analysis_runs")
 }

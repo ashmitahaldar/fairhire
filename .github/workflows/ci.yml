@@ -16,5 +16,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - run: npm run build --workspace=shared
+      - name: Generate Prisma client
+        run: DATABASE_URL="postgresql://placeholder" DIRECT_URL="postgresql://placeholder" npx prisma generate
       - run: npm run type-check --workspaces --if-present
       - run: npm run lint
