@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import { clerkAuth, attachManager } from './middleware/requireAuth';
 import { authRouter } from './routes/auth';
 import { meetingsRouter } from './routes/meetings';
@@ -10,6 +11,10 @@ import { internalRouter } from './routes/internal';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use(cors({
+  origin: process.env.WEB_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
 
 // Parse Clerk JWT on every request so getAuth(req) is available everywhere

@@ -17,3 +17,5 @@ services:
         sync: false   # set in Render dashboard
       - key: INTERNAL_API_SECRET
         sync: false   # set in Render dashboard — generate with: openssl rand -hex 32
+      - key: WEB_URL
+        sync: false   # set in Render dashboard — your Vercel frontend URL
