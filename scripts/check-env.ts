@@ -1,5 +1,6 @@
 const required = [
   'DATABASE_URL',
+  'DIRECT_URL',
   'CLERK_SECRET_KEY',
   'INTERNAL_API_SECRET',
 ];

@@ -1,11 +1,13 @@
 import { clerkMiddleware, getAuth } from '@clerk/express';
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../lib/prisma';
+import { systemPrisma } from '../lib/prisma';
 
-// Step 1: verify Clerk JWT is present and valid
+// Processes the Clerk JWT on every request. Apply globally in index.ts.
 export const clerkAuth = clerkMiddleware();
 
-// Step 2: resolve Clerk userId → Manager row → attach to req.manager
+// Resolves clerkUserId → Manager row → attaches to req.manager.
+// Uses systemPrisma (superuser) because this runs before app.current_manager_id
+// is set, so the regular app_user client would return 0 rows due to RLS.
 export async function attachManager(req: Request, res: Response, next: NextFunction) {
   const { userId } = getAuth(req);
   if (!userId) {
@@ -13,12 +15,12 @@ export async function attachManager(req: Request, res: Response, next: NextFunct
     return;
   }
 
-  const manager = await prisma.manager.findUnique({
+  const manager = await systemPrisma.manager.findUnique({
     where: { clerkUserId: userId },
   });
 
   if (!manager) {
-    res.status(401).json({ error: 'Manager account not found — complete sign-up first' });
+    res.status(401).json({ error: 'Manager account not found — call POST /auth/sync first' });
     return;
   }
 
@@ -26,5 +28,4 @@ export async function attachManager(req: Request, res: Response, next: NextFunct
   next();
 }
 
-// Compose both steps — use this on all protected routes
-export const requireAuth = [clerkAuth, attachManager];
+export const requireAuth = [clerkAuth, attachManager] as const;
