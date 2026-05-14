@@ -3,7 +3,7 @@ services:
     name: fairhire-api
     runtime: node
     rootDir: .
-    buildCommand: npm install && npm run build --workspace=shared && npm run build --workspace=api
+    buildCommand: npm install && npx prisma generate && (cd shared && npm run build) && (cd api && npm run build)
     startCommand: node api/dist/index.js
     healthCheckPath: /health
     envVars:
