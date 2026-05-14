@@ -35,7 +35,7 @@ export function AuthGuard() {
       .catch(() => setSyncState('error'));
   }, [isSignedIn, user, syncState, getToken]);
 
-  if (!isLoaded || syncState === 'syncing') return <div>Loading...</div>;
+  if (!isLoaded || syncState === 'idle' || syncState === 'syncing') return <div>Loading...</div>;
   if (!isSignedIn) return <SignIn />;
   if (syncState === 'error') return <div>Failed to set up your account. Please refresh.</div>;
 
