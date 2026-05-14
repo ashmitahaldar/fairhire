@@ -1,3 +1,8 @@
 export default function HRDashboard() {
-  return <div>HR Dashboard — stub</div>;
+  return (
+    <div>
+      <h1>HR Overview</h1>
+      <p>Anonymised org-level metrics — stub. Populated once seed data is loaded.</p>
+    </div>
+  );
 }

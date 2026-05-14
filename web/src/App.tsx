@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthGuard } from './components/AuthGuard';
 import { RoleGuard } from './components/RoleGuard';
+import { Layout } from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import MeetingUpload from './pages/MeetingUpload';
 import PatternMirror from './pages/PatternMirror';
@@ -11,11 +12,13 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AuthGuard />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/meetings/upload" element={<MeetingUpload />} />
-          <Route path="/pattern-mirror" element={<PatternMirror />} />
-          <Route element={<RoleGuard role="hr_admin" />}>
-            <Route path="/hr" element={<HRDashboard />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/meetings/upload" element={<MeetingUpload />} />
+            <Route path="/pattern-mirror" element={<PatternMirror />} />
+            <Route element={<RoleGuard role="hr_admin" />}>
+              <Route path="/hr" element={<HRDashboard />} />
+            </Route>
           </Route>
         </Route>
       </Routes>
