@@ -15,6 +15,6 @@ export type NationalityStatus = 'citizen' | 'pr' | 'ep_holder' | 's_pass' | 'oth
 
 export type Race = 'chinese' | 'malay' | 'indian' | 'other';
 
-export type AgeBand = 'under_30' | '30_39' | '40_49' | '50_plus';
+export type AgeBand = 'under_30' | 'age_30_39' | 'age_40_49' | 'age_50_plus';
 
 export type Gender = 'male' | 'female' | 'non_binary' | 'prefer_not_to_say';

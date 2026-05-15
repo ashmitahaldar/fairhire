@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import { clerkAuth, attachManager } from './middleware/requireAuth';
 import { authRouter } from './routes/auth';
@@ -32,6 +32,11 @@ export function createApp() {
   app.use('/decisions', decisionsRouter);
   app.use('/flags', flagsRouter);
   app.use('/hr', hrRouter);
+
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err.stack ?? err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  });
 
   return app;
 }

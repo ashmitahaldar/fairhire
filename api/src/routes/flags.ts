@@ -9,8 +9,17 @@ const dismissBody = z.object({
   dismissReason: z.string().min(1),
 });
 
+const listQuery = z.object({
+  meetingId: z.string().uuid().optional(),
+});
+
 flagsRouter.get('/', async (req, res) => {
-  const meetingId = req.query.meetingId as string | undefined;
+  const parsed = listQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const { meetingId } = parsed.data;
 
   const flags = await withManagerContext(req.manager.id, async (tx) => {
     return tx.flag.findMany({

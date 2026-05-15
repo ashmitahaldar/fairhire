@@ -1,9 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
-import { useManagerRole } from '../lib/useManagerRole';
+import { useManager } from '../lib/ManagerContext';
 
 export function Layout() {
-  const { managerRole } = useManagerRole();
+  const { role: managerRole } = useManager();
 
   return (
     <div style={{ fontFamily: 'sans-serif', minHeight: '100vh' }}>

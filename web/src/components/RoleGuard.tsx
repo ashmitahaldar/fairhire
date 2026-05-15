@@ -1,5 +1,5 @@
 import { Outlet, Navigate } from 'react-router-dom';
-import { useManagerRole } from '../lib/useManagerRole';
+import { useManager } from '../lib/ManagerContext';
 import type { Role } from '@fairhire/shared';
 
 interface RoleGuardProps {
@@ -7,8 +7,7 @@ interface RoleGuardProps {
 }
 
 export function RoleGuard({ role }: RoleGuardProps) {
-  const { managerRole, isLoaded } = useManagerRole();
-  if (!isLoaded) return <div>Loading...</div>;
+  const { role: managerRole } = useManager();
   if (managerRole !== role) return <Navigate to="/" replace />;
   return <Outlet />;
 }
