@@ -257,7 +257,7 @@ async function main() {
 
   console.log('[seed] Creating candidates...');
 
-  const [ahmad, siti, rajesh, meiLing, kevin, lakshmi, azri, jennifer, ravi, nurul] =
+  const [ahmad, siti, rajesh, meiLing, kevin, lakshmi, azri, , ravi, nurul] =
     await Promise.all([
       prisma.candidate.create({
         data: {
@@ -636,7 +636,7 @@ async function main() {
   console.log('[seed] Creating flags...');
 
   // Wei Liang Tan — criteria_drift (meetings 1–3, no flags on meeting 4)
-  const weiFlags = await prisma.flag.createMany({
+  await prisma.flag.createMany({
     data: [
       // Meeting 1 (Ahmad) — 4 flags
       {

@@ -21,3 +21,5 @@ jobs:
         run: DATABASE_URL="postgresql://placeholder" DIRECT_URL="postgresql://placeholder" npx prisma generate
       - run: npm run type-check --workspaces --if-present
       - run: npm run lint
+      - name: Run tests
+        run: npm test --workspace=api
