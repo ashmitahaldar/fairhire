@@ -22,18 +22,21 @@ export function deduplicate(ruleFlags: FlagCandidate[], llmFlags: FlagCandidate[
   const merged: FlagCandidate[] = [...ruleFlags];
 
   for (const llmFlag of llmFlags) {
-    const duplicate = ruleFlags.find(
+    // Search merged, not ruleFlags: a later overlapping LLM flag must compare
+    // against whatever currently occupies that slot (a rule flag OR an
+    // already-applied higher-confidence LLM flag), so the highest-confidence
+    // candidate always wins regardless of LLM ordering.
+    const duplicate = merged.find(
       (r) => r.flagType === llmFlag.flagType && excerptOverlaps(r.excerpt, llmFlag.excerpt),
     );
 
     if (!duplicate) {
       merged.push(llmFlag);
     } else if (llmFlag.confidenceScore > duplicate.confidenceScore) {
-      // Replace the rules flag with the higher-confidence LLM flag
-      const idx = merged.indexOf(duplicate);
-      merged[idx] = llmFlag;
+      // Replace the lower-confidence flag (rule or LLM) currently in merged.
+      merged[merged.indexOf(duplicate)] = llmFlag;
     }
-    // else: keep the rules flag as-is
+    // else: keep the existing merged flag as-is
   }
 
   return merged;

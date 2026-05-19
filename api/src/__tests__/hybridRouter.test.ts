@@ -49,4 +49,26 @@ describe('deduplicate (HybridRouter)', () => {
     const llm = [ruleFlag({ flagType: 'age_bias', reasoning: 'llm' })];
     expect(deduplicate(rules, llm)).toHaveLength(2);
   });
+
+  it('collapses multiple overlapping LLM flags of the same type to the highest', () => {
+    // No rule flags — the old code searched ruleFlags so these never deduped.
+    const llm = [
+      ruleFlag({ confidenceScore: 0.9, reasoning: 'llm-high' }),
+      ruleFlag({ confidenceScore: 0.6, reasoning: 'llm-low' }),
+    ];
+    const merged = deduplicate([], llm);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].reasoning).toBe('llm-high');
+  });
+
+  it('highest-confidence wins regardless of LLM ordering (low before high)', () => {
+    const rules = [ruleFlag({ confidenceScore: 0.5, reasoning: 'rule' })];
+    const llm = [
+      ruleFlag({ confidenceScore: 0.7, reasoning: 'llm-mid' }),
+      ruleFlag({ confidenceScore: 0.95, reasoning: 'llm-top' }),
+    ];
+    const merged = deduplicate(rules, llm);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].reasoning).toBe('llm-top');
+  });
 });
