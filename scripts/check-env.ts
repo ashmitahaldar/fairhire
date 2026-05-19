@@ -4,6 +4,7 @@ const required = [
   'CLERK_SECRET_KEY',
   'CLERK_PUBLISHABLE_KEY',
   'INTERNAL_API_SECRET',
+  'OPENAI_API_KEY',
 ];
 
 const missing = required.filter((key) => !process.env[key]);
