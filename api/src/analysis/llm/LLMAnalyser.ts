@@ -10,7 +10,9 @@ export class LLMAnalyser {
   readonly modelVersion: string;
 
   constructor() {
-    this.modelVersion = process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+    // `||` not `??`: an empty OPENAI_MODEL= in .env is a set-but-blank string,
+    // which `??` would NOT fall back on, sending model: '' to OpenAI.
+    this.modelVersion = process.env.OPENAI_MODEL || DEFAULT_MODEL;
   }
 
   private get client(): OpenAI {
