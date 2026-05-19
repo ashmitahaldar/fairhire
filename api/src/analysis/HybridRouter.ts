@@ -18,7 +18,7 @@ function excerptOverlaps(a: string, b: string): boolean {
   return longer > 0 && shorter / longer >= MIN_OVERLAP_RATIO;
 }
 
-function deduplicate(ruleFlags: FlagCandidate[], llmFlags: FlagCandidate[]): FlagCandidate[] {
+export function deduplicate(ruleFlags: FlagCandidate[], llmFlags: FlagCandidate[]): FlagCandidate[] {
   const merged: FlagCandidate[] = [...ruleFlags];
 
   for (const llmFlag of llmFlags) {
