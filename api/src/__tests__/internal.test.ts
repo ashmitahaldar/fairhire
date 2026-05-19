@@ -8,18 +8,21 @@ jest.mock('@clerk/express', () => ({
 jest.mock('../lib/prisma', () => ({
   prisma: {
     meeting: { findMany: jest.fn(), findUnique: jest.fn() },
-    analysisRun: { findUnique: jest.fn() },
     $queryRaw: jest.fn(),
   },
-  systemPrisma: { manager: { findUnique: jest.fn() } },
+  // The /internal route looks up the run via systemPrisma (no manager context).
+  systemPrisma: {
+    manager: { findUnique: jest.fn() },
+    analysisRun: { findUnique: jest.fn() },
+  },
   withManagerContext: jest.fn(),
 }));
 
 import { createApp } from '../app';
-import { prisma } from '../lib/prisma';
+import { systemPrisma } from '../lib/prisma';
 
 const app = createApp();
-const mockFindUnique = jest.mocked(prisma.analysisRun.findUnique);
+const mockFindUnique = jest.mocked(systemPrisma.analysisRun.findUnique);
 
 // /internal routes are authenticated by INTERNAL_API_SECRET, not Clerk.
 // These tests verify the header guard without needing a real database or token.

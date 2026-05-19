@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { FLAG_TYPES } from '@fairhire/shared';
-import { prisma, withManagerContext } from '../lib/prisma';
+import { systemPrisma, withManagerContext } from '../lib/prisma';
 
 export const internalRouter = Router();
 
@@ -40,7 +40,11 @@ internalRouter.post('/analysis/:runId/results', async (req, res) => {
     return;
   }
 
-  const run = await prisma.analysisRun.findUnique({
+  // This route is secret-authenticated, not Clerk — there is no manager
+  // context. The RLS-enforced client would filter analysis_runs to 0 rows
+  // (current_manager_id() is NULL), so use systemPrisma for the lookup, then
+  // switch to withManagerContext for the write so RLS WITH CHECK still applies.
+  const run = await systemPrisma.analysisRun.findUnique({
     where: { id: req.params.runId },
     select: {
       status: true,
