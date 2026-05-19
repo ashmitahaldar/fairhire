@@ -56,7 +56,7 @@ meetingsRouter.post('/', async (req, res) => {
   res.status(201).json(meeting);
 
   setImmediate(() => {
-    runAnalysis(runId, meeting.id, transcript, req.manager.orgId).catch((err) => {
+    runAnalysis(runId).catch((err) => {
       console.error('[analysis] unhandled error for run', runId, err);
     });
   });
