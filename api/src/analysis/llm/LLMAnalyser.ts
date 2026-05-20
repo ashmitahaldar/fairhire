@@ -29,6 +29,13 @@ export function enforceConfidenceFloor(flags: FlagCandidate[]): FlagCandidate[] 
   return kept;
 }
 
+// Cap any single OpenAI request — without this a hung connection would wedge
+// the background job indefinitely (SDK default is ~10 min). On timeout the
+// SDK throws and the existing catch returns { ok: false } → the run completes
+// degraded (rules-only). 60s is comfortably above normal latency for our
+// short transcripts; if it ever fires, something is genuinely wrong.
+const OPENAI_TIMEOUT_MS = 60_000;
+
 export class LLMAnalyser {
   private _client: OpenAI | null = null;
   readonly modelVersion: string;
@@ -80,15 +87,18 @@ export class LLMAnalyser {
       ? `${SYSTEM_PROMPT}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY the JSON object described above with no other text.`
       : SYSTEM_PROMPT;
 
-    const response = await this.client.chat.completions.create({
-      model: this.modelVersion,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemContent },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.1,
-    });
+    const response = await this.client.chat.completions.create(
+      {
+        model: this.modelVersion,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.1,
+      },
+      { timeout: OPENAI_TIMEOUT_MS },
+    );
 
     const content = response.choices[0]?.message?.content ?? '{}';
     try {
