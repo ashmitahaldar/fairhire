@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
+import { runAnalysis } from '../analysis/analyseTranscript';
 
 export const meetingsRouter = Router();
 
@@ -32,8 +33,8 @@ meetingsRouter.post('/', async (req, res) => {
 
   const { title, transcript, date, candidateIds } = parsed.data;
 
-  const meeting = await withManagerContext(req.manager.id, async (tx) => {
-    return tx.meeting.create({
+  const { meeting, runId } = await withManagerContext(req.manager.id, async (tx) => {
+    const m = await tx.meeting.create({
       data: {
         title,
         transcript,
@@ -46,9 +47,19 @@ meetingsRouter.post('/', async (req, res) => {
       },
       include: { candidates: { include: { candidate: true } } },
     });
+    const run = await tx.analysisRun.create({
+      data: { meetingId: m.id, orgId: req.manager.orgId, status: 'pending' },
+    });
+    return { meeting: m, runId: run.id };
   });
 
   res.status(201).json(meeting);
+
+  setImmediate(() => {
+    runAnalysis(runId).catch((err) => {
+      console.error('[analysis] unhandled error for run', runId, err);
+    });
+  });
 });
 
 meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {

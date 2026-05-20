@@ -4,12 +4,15 @@ export type DecisionOutcome = 'hired' | 'rejected' | 'in_progress';
 
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed';
 
-export type FlagType =
-  | 'biased_language'
-  | 'criteria_drift'
-  | 'asymmetric_concern'
-  | 'hedging_language'
-  | 'age_bias';
+export const FLAG_TYPES = [
+  'biased_language',
+  'criteria_drift',
+  'asymmetric_concern',
+  'hedging_language',
+  'age_bias',
+] as const;
+
+export type FlagType = (typeof FLAG_TYPES)[number];
 
 export type NationalityStatus = 'citizen' | 'pr' | 'ep_holder' | 's_pass' | 'other';
 

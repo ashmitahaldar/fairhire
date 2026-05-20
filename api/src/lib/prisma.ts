@@ -16,9 +16,27 @@ export const prisma =
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 // ─── System client (postgres superuser — RLS bypassed) ────────────────────
-// Used only for the two bootstrap operations that happen before a manager ID
-// is known: looking up a manager by clerkUserId in requireAuth, and upserting
-// a manager row in POST /auth/sync. Never use this for regular route handlers.
+// Permitted only when no manager context can exist. Two legitimate shapes:
+//
+//   1. Pre-auth bootstrap — code that runs before req.manager is resolved.
+//        - requireAuth: lookup manager by clerkUserId
+//        - POST /auth/sync: upsert manager + org/dept findFirst (first login)
+//
+//   2. Context-less code paths — code that runs outside any Clerk-authed
+//      request and so cannot set app.current_manager_id. Prefer to use
+//      systemPrisma only for the initial lookup, then derive managerId from
+//      the loaded row and route subsequent writes through withManagerContext
+//      so RLS WITH CHECK still enforces ownership.
+//        - POST /internal/.../results: secret-authenticated, no Clerk JWT
+//        - runAnalysis (background job): no HTTP request
+//        - runAnalysis best-effort failure marker: must record even if the
+//          withManagerContext path is what failed
+//
+// Never use systemPrisma from a Clerk-authed route handler — use
+// withManagerContext(req.manager.id, ...) so RLS enforces ownership.
+//
+// New systemPrisma call sites must be added to the lists above by the
+// reviewer, so the bypass surface stays visible in diffs.
 
 export const systemPrisma = new PrismaClient({
   datasources: { db: { url: process.env.DIRECT_URL } },
