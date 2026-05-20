@@ -1,9 +1,18 @@
+import { createHash } from 'crypto';
 import OpenAI from 'openai';
 import { LLMResponseSchema } from './schema';
 import { SYSTEM_PROMPT, buildUserMessage } from './prompt';
 import type { FlagCandidate } from '../types';
 
 const DEFAULT_MODEL = 'gpt-4o-2024-08-06';
+
+// Returns a non-PII fingerprint of an LLM response string. LLM responses
+// echo transcript excerpts (candidate names, demographics, evaluative
+// language); raw-dumping them to logs leaks sensitive content. The fingerprint
+// is enough to correlate the same bad payload across runs without revealing it.
+function fingerprint(s: string): string {
+  return `${s.length}B/sha256=${createHash('sha256').update(s).digest('hex').slice(0, 12)}`;
+}
 
 export class LLMAnalyser {
   private _client: OpenAI | null = null;
@@ -39,8 +48,11 @@ export class LLMAnalyser {
       const parsedRetry = LLMResponseSchema.safeParse(rawRetry);
       if (parsedRetry.success) return { flags: parsedRetry.data.flags, ok: true };
 
+      // Zod's flatten() shows which fields failed and the expected types —
+      // those are non-PII, safe to log. The response itself is fingerprinted,
+      // not dumped.
       console.error('[LLMAnalyser] Retry parse failed. Validation error:', parsedRetry.error.flatten());
-      console.error('[LLMAnalyser] Raw retry response:', JSON.stringify(rawRetry));
+      console.error('[LLMAnalyser] Retry response fingerprint:', fingerprint(JSON.stringify(rawRetry)));
       return { flags: [], ok: false };
     } catch (err) {
       console.error('[LLMAnalyser] OpenAI call failed:', err);
@@ -67,7 +79,8 @@ export class LLMAnalyser {
     try {
       return JSON.parse(content);
     } catch {
-      console.error('[LLMAnalyser] Failed to parse JSON from response:', content);
+      // Fingerprint, not content — see the helper at the top of this file.
+      console.error('[LLMAnalyser] Failed to parse JSON. Response fingerprint:', fingerprint(content));
       return {};
     }
   }
