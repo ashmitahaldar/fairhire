@@ -18,6 +18,7 @@ import { runAnalysis } from '../analysis/analyseTranscript';
 import { systemPrisma, withManagerContext } from '../lib/prisma';
 
 const mockFindUnique = jest.mocked(systemPrisma.analysisRun.findUnique);
+const mockUpdateMany = jest.mocked(systemPrisma.analysisRun.updateMany);
 const mockWithCtx = jest.mocked(withManagerContext);
 
 const meeting = { id: 'm1', orgId: 'o1', managerId: 'mgr1', transcript: 'some transcript' };
@@ -34,6 +35,7 @@ function makeTx(claimCount: number, finaliseCount: number) {
 describe('runAnalysis — atomic status guard', () => {
   beforeEach(() => {
     mockFindUnique.mockReset();
+    mockUpdateMany.mockReset();
     mockWithCtx.mockReset();
     mockAnalyse.mockReset();
   });
@@ -80,5 +82,21 @@ describe('runAnalysis — atomic status guard', () => {
 
     expect(mockAnalyse).toHaveBeenCalledTimes(1);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('marks the run failed when the initial lookup throws (regression: try now covers lookup)', async () => {
+    mockFindUnique.mockRejectedValue(new Error('db blip'));
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+
+    await runAnalysis('run1');
+
+    // Failure marker was written via systemPrisma (only if still non-terminal).
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'run1', status: { in: ['pending', 'running'] } },
+      data: { status: 'failed', error: 'db blip' },
+    });
+    // And we never proceeded to analyse.
+    expect(mockAnalyse).not.toHaveBeenCalled();
+    expect(mockWithCtx).not.toHaveBeenCalled();
   });
 });
