@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { FLAG_TYPES } from '@fairhire/shared';
 import { systemPrisma, withManagerContext } from '../lib/prisma';
+import { FlagCandidateSchema } from '../analysis/types';
 
 export const internalRouter = Router();
 
@@ -20,16 +20,8 @@ function requireInternalSecret(req: Request, res: Response, next: NextFunction) 
 
 internalRouter.use(requireInternalSecret);
 
-const flagInput = z.object({
-  flagType: z.enum(FLAG_TYPES),
-  excerpt: z.string().min(1),
-  reasoning: z.string().min(1),
-  confidenceScore: z.number().min(0).max(1),
-  suggestedAlt: z.string().optional(),
-});
-
 const resultsBody = z.object({
-  flags: z.array(flagInput),
+  flags: z.array(FlagCandidateSchema),
   modelVersion: z.string().optional(),
 });
 

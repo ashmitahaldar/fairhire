@@ -1,14 +1,9 @@
 import { z } from 'zod';
-import { FLAG_TYPES } from '@fairhire/shared';
+import { FlagCandidateSchema } from '../types';
 
-export const FlagCandidateSchema = z.object({
-  flagType: z.enum(FLAG_TYPES),
-  excerpt: z.string().min(1),
-  reasoning: z.string().min(1),
-  confidenceScore: z.number().min(0).max(1),
-  suggestedAlt: z.string().optional(),
-});
-
+// Shape of the JSON object the LLM returns. The flag shape itself is owned
+// by analysis/types.ts so the LLM contract and the /internal callback
+// contract cannot drift apart.
 export const LLMResponseSchema = z.object({
   flags: z.array(FlagCandidateSchema),
 });
