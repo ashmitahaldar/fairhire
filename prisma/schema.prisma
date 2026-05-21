@@ -119,23 +119,55 @@ model Manager {
 }
 
 model Candidate {
-  id                       String             @id @default(uuid())
-  orgId                    String             @map("org_id")
-  name                     String
-  roleAppliedFor           String             @map("role_applied_for")
-  nationalityStatus        NationalityStatus? @map("nationality_status")
-  race                     Race?
-  ageBand                  AgeBand?           @map("age_band")
-  gender                   Gender?
-  selfReportedDemographics Json?              @map("self_reported_demographics")
-  createdAt                DateTime           @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  name           String
+  roleAppliedFor String   @map("role_applied_for")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  org       Organisation      @relation(fields: [orgId], references: [id])
-  meetings  MeetingCandidate[]
-  decisions Decision[]
+  org          Organisation           @relation(fields: [orgId], references: [id])
+  meetings     MeetingCandidate[]
+  decisions    Decision[]
+  demographics CandidateDemographics?
 
+  // Composite unique target for CandidateDemographics' (candidate_id, org_id)
+  // FK — lets that FK pin a demographics row to a candidate in the same org.
+  @@unique([id, orgId])
   @@index([orgId])
   @@map("candidates")
+}
+
+// Separated from `candidates` so protected/self-reported attributes can be
+// access-controlled independently (e.g. fairness aggregates available to
+// audit roles while individual managers see only role-relevant fields).
+model CandidateDemographics {
+  candidateId String @id @map("candidate_id")
+  orgId       String @map("org_id")
+
+  // protected / legal-class fields
+  nationalityStatus NationalityStatus? @map("nationality_status")
+  race              Race?
+  ageBand           AgeBand?           @map("age_band")
+  gender            Gender?
+
+  // self-reported background
+  firstLanguage    String? @map("first_language")
+  yearsInSingapore Int?    @map("years_in_singapore")
+  university       String?
+  major            String?
+  previousEmployer String? @map("previous_employer")
+  yearsExperience  Int?    @map("years_experience")
+  currentBase      String? @map("current_base")
+
+  // FK includes org_id so a demographics row can only reference a candidate in
+  // the same org — a cross-org mismatch is unrepresentable, not just policed.
+  candidate Candidate @relation(fields: [candidateId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  // Required by Prisma to use [candidateId, orgId] as a 1:1 relation's fields.
+  // Logically redundant with the candidateId primary key.
+  @@unique([candidateId, orgId])
+  @@index([orgId])
+  @@map("candidate_demographics")
 }
 
 model Meeting {

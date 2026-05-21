@@ -1,6 +1,17 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
 import { transcripts } from './seed-transcripts';
+
+type DemographicsSpec = Omit<
+  Prisma.CandidateDemographicsCreateWithoutCandidateInput,
+  'orgId'
+>;
+
+type CandidateSpec = {
+  name: string;
+  roleAppliedFor: string;
+  demographics: DemographicsSpec;
+};
 
 // Use DIRECT_URL (superuser) so RLS does not block seed writes
 const prisma = new PrismaClient({
@@ -15,6 +26,7 @@ async function main() {
   await prisma.decision.deleteMany();
   await prisma.meetingCandidate.deleteMany();
   await prisma.meeting.deleteMany();
+  await prisma.candidateDemographics.deleteMany();
   await prisma.candidate.deleteMany();
   await prisma.manager.deleteMany();
   await prisma.department.deleteMany();
@@ -94,129 +106,143 @@ async function main() {
 
   console.log('[seed] Creating candidates...');
 
-  const [ahmad, siti, rajesh, meiLing, kevin, lakshmi, azri, , ravi, nurul] =
-    await Promise.all([
+  const candidateSpecs: CandidateSpec[] = [
+    {
+      name: 'Ahmad Faris bin Ismail',
+      roleAppliedFor: 'Associate Analyst',
+      demographics: {
+        nationalityStatus: 'ep_holder',
+        race: 'malay',
+        ageBand: 'age_30_39',
+        gender: 'male',
+        firstLanguage: 'Malay',
+        yearsInSingapore: 4,
+      },
+    },
+    {
+      name: 'Siti Nurhaliza bte Rahman',
+      roleAppliedFor: 'Analyst',
+      demographics: {
+        nationalityStatus: 'citizen',
+        race: 'malay',
+        ageBand: 'under_30',
+        gender: 'female',
+        university: 'NUS',
+        major: 'Finance',
+      },
+    },
+    {
+      name: 'Rajesh Kumar s/o Subramaniam',
+      roleAppliedFor: 'Senior Analyst',
+      demographics: {
+        nationalityStatus: 'pr',
+        race: 'indian',
+        ageBand: 'age_40_49',
+        gender: 'male',
+        previousEmployer: 'Deloitte Transactions',
+      },
+    },
+    {
+      name: 'Mei Ling Chua',
+      roleAppliedFor: 'Associate',
+      demographics: {
+        nationalityStatus: 'citizen',
+        race: 'chinese',
+        ageBand: 'age_30_39',
+        gender: 'female',
+        previousEmployer: 'Goldman Sachs IBD',
+      },
+    },
+    {
+      name: 'Kevin Tan Wei Jie',
+      roleAppliedFor: 'Analyst',
+      demographics: {
+        nationalityStatus: 'citizen',
+        race: 'chinese',
+        ageBand: 'under_30',
+        gender: 'male',
+        university: 'NTU',
+        major: 'Accountancy',
+      },
+    },
+    {
+      name: 'Lakshmi d/o Krishnamurthy',
+      roleAppliedFor: 'Director',
+      demographics: {
+        nationalityStatus: 'ep_holder',
+        race: 'indian',
+        ageBand: 'age_50_plus',
+        gender: 'female',
+        yearsExperience: 22,
+        currentBase: 'Hong Kong',
+      },
+    },
+    {
+      name: 'Muhammad Azri bin Abdullah',
+      roleAppliedFor: 'Associate',
+      demographics: {
+        nationalityStatus: 's_pass',
+        race: 'malay',
+        ageBand: 'age_30_39',
+        gender: 'male',
+        firstLanguage: 'Malay',
+        currentBase: 'Kuala Lumpur',
+      },
+    },
+    {
+      name: 'Jennifer Lee Hui Ying',
+      roleAppliedFor: 'Vice President',
+      demographics: {
+        nationalityStatus: 'pr',
+        race: 'chinese',
+        ageBand: 'age_40_49',
+        gender: 'female',
+        previousEmployer: 'UBS Investment Bank',
+      },
+    },
+    {
+      name: 'Ravi Shankar s/o Pillai',
+      roleAppliedFor: 'Director',
+      demographics: {
+        nationalityStatus: 'citizen',
+        race: 'indian',
+        ageBand: 'age_50_plus',
+        gender: 'male',
+        yearsExperience: 28,
+        previousEmployer: 'CIMB Investment Banking',
+      },
+    },
+    {
+      name: 'Nurul Izzah bte Kamaruddin',
+      roleAppliedFor: 'Associate Director',
+      demographics: {
+        nationalityStatus: 'citizen',
+        race: 'malay',
+        ageBand: 'age_40_49',
+        gender: 'female',
+        yearsExperience: 14,
+        previousEmployer: 'Maybank Investment Banking',
+      },
+    },
+  ];
+
+  // Nested create writes each candidate and its 1:1 demographics row in one
+  // atomic operation — no separate createMany, and no index-based pairing
+  // between two arrays to keep aligned.
+  const candidates = await Promise.all(
+    candidateSpecs.map((spec) =>
       prisma.candidate.create({
         data: {
           orgId: org.id,
-          name: 'Ahmad Faris bin Ismail',
-          roleAppliedFor: 'Associate Analyst',
-          nationalityStatus: 'ep_holder',
-          race: 'malay',
-          ageBand: 'age_30_39',
-          gender: 'male',
-          selfReportedDemographics: { firstLanguage: 'Malay', yearsInSingapore: 4 },
+          name: spec.name,
+          roleAppliedFor: spec.roleAppliedFor,
+          demographics: { create: { orgId: org.id, ...spec.demographics } },
         },
       }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Siti Nurhaliza bte Rahman',
-          roleAppliedFor: 'Analyst',
-          nationalityStatus: 'citizen',
-          race: 'malay',
-          ageBand: 'under_30',
-          gender: 'female',
-          selfReportedDemographics: { university: 'NUS', major: 'Finance' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Rajesh Kumar s/o Subramaniam',
-          roleAppliedFor: 'Senior Analyst',
-          nationalityStatus: 'pr',
-          race: 'indian',
-          ageBand: 'age_40_49',
-          gender: 'male',
-          selfReportedDemographics: { previousEmployer: 'Deloitte Transactions' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Mei Ling Chua',
-          roleAppliedFor: 'Associate',
-          nationalityStatus: 'citizen',
-          race: 'chinese',
-          ageBand: 'age_30_39',
-          gender: 'female',
-          selfReportedDemographics: { previousEmployer: 'Goldman Sachs IBD' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Kevin Tan Wei Jie',
-          roleAppliedFor: 'Analyst',
-          nationalityStatus: 'citizen',
-          race: 'chinese',
-          ageBand: 'under_30',
-          gender: 'male',
-          selfReportedDemographics: { university: 'NTU', major: 'Accountancy' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Lakshmi d/o Krishnamurthy',
-          roleAppliedFor: 'Director',
-          nationalityStatus: 'ep_holder',
-          race: 'indian',
-          ageBand: 'age_50_plus',
-          gender: 'female',
-          selfReportedDemographics: { yearsExperience: 22, currentBase: 'Hong Kong' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Muhammad Azri bin Abdullah',
-          roleAppliedFor: 'Associate',
-          nationalityStatus: 's_pass',
-          race: 'malay',
-          ageBand: 'age_30_39',
-          gender: 'male',
-          selfReportedDemographics: { firstLanguage: 'Malay', currentBase: 'Kuala Lumpur' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Jennifer Lee Hui Ying',
-          roleAppliedFor: 'Vice President',
-          nationalityStatus: 'pr',
-          race: 'chinese',
-          ageBand: 'age_40_49',
-          gender: 'female',
-          selfReportedDemographics: { previousEmployer: 'UBS Investment Bank' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Ravi Shankar s/o Pillai',
-          roleAppliedFor: 'Director',
-          nationalityStatus: 'citizen',
-          race: 'indian',
-          ageBand: 'age_50_plus',
-          gender: 'male',
-          selfReportedDemographics: { yearsExperience: 28, previousEmployer: 'CIMB Investment Banking' },
-        },
-      }),
-      prisma.candidate.create({
-        data: {
-          orgId: org.id,
-          name: 'Nurul Izzah bte Kamaruddin',
-          roleAppliedFor: 'Associate Director',
-          nationalityStatus: 'citizen',
-          race: 'malay',
-          ageBand: 'age_40_49',
-          gender: 'female',
-          selfReportedDemographics: { yearsExperience: 14, previousEmployer: 'Maybank Investment Banking' },
-        },
-      }),
-    ]);
+    ),
+  );
+
+  const [ahmad, siti, rajesh, meiLing, kevin, lakshmi, azri, , ravi, nurul] = candidates;
 
   // ─── Meetings ────────────────────────────────────────────────────────────────
 

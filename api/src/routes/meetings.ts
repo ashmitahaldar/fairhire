@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
 import { runAnalysis } from '../analysis/analyseTranscript';
@@ -13,11 +14,17 @@ const createBody = z.object({
   candidateIds: z.array(z.string().uuid()).min(1),
 });
 
+// Candidate rows include their 1:1 demographics; shared so the three meeting
+// queries below stay consistent.
+const candidateWithDemographics = Prisma.validator<Prisma.MeetingCandidateInclude>()({
+  candidate: { include: { demographics: true } },
+});
+
 meetingsRouter.get('/', async (req, res) => {
   const meetings = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findMany({
       where: { managerId: req.manager.id },
-      include: { candidates: { include: { candidate: true } } },
+      include: { candidates: { include: candidateWithDemographics } },
       orderBy: { date: 'desc' },
     });
   });
@@ -45,7 +52,7 @@ meetingsRouter.post('/', async (req, res) => {
           create: candidateIds.map((candidateId) => ({ candidateId })),
         },
       },
-      include: { candidates: { include: { candidate: true } } },
+      include: { candidates: { include: candidateWithDemographics } },
     });
     const run = await tx.analysisRun.create({
       data: { meetingId: m.id, orgId: req.manager.orgId, status: 'pending' },
@@ -67,7 +74,7 @@ meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {
     return tx.meeting.findUnique({
       where: { id: req.params.id },
       include: {
-        candidates: { include: { candidate: true } },
+        candidates: { include: candidateWithDemographics },
         flags: true,
         analysisRuns: { orderBy: { createdAt: 'desc' }, take: 1 },
       },

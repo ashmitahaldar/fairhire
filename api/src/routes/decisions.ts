@@ -21,7 +21,10 @@ decisionsRouter.get('/', async (req, res) => {
   const decisions = await withManagerContext(req.manager.id, async (tx) => {
     return tx.decision.findMany({
       where: { managerId: req.manager.id },
-      include: { candidate: true, meeting: { select: { id: true, title: true, date: true } } },
+      include: {
+        candidate: { include: { demographics: true } },
+        meeting: { select: { id: true, title: true, date: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   });
