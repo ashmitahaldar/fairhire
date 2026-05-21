@@ -19,14 +19,20 @@
 
 ALTER TABLE candidate_demographics ENABLE ROW LEVEL SECURITY;
 
--- Default-privilege grant in 001_rls.sql covers future tables, but be
--- explicit here for clarity when reading this file standalone.
-GRANT SELECT, INSERT, UPDATE ON candidate_demographics TO app_user;
+-- Table privileges stay broad — SELECT/INSERT/UPDATE/DELETE — matching the
+-- default-privilege grant in 001_rls.sql:33-34 (which already covers every new
+-- table) and every other table in the schema. Restated explicitly so the file
+-- reads standalone. Access is narrowed to read+insert by the policies below,
+-- not by withholding table privileges — see the note there.
+GRANT SELECT, INSERT, UPDATE, DELETE ON candidate_demographics TO app_user;
 
 
 -- ─── Policies ─────────────────────────────────────────────────────────────
 -- Mirrors `candidates` (001_rls.sql:108-118): org-scoped SELECT + INSERT.
--- UPDATE/DELETE deliberately omitted to match `candidates` (read+insert only).
+-- Only SELECT and INSERT *policies* are defined. UPDATE/DELETE policies are
+-- deliberately omitted: table privileges above remain broad, but with no
+-- UPDATE/DELETE policy RLS blocks those operations for app_user anyway. Net
+-- effective access is read+insert — same as `candidates`.
 
 CREATE POLICY "managers_select_org_candidate_demographics"
   ON candidate_demographics FOR SELECT TO app_user
