@@ -3,8 +3,8 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 import { transcripts } from './seed-transcripts';
 
 type DemographicsSpec = Omit<
-  Prisma.CandidateDemographicsCreateManyInput,
-  'candidateId' | 'orgId'
+  Prisma.CandidateDemographicsCreateWithoutCandidateInput,
+  'orgId'
 >;
 
 type CandidateSpec = {
@@ -226,6 +226,9 @@ async function main() {
     },
   ];
 
+  // Nested create writes each candidate and its 1:1 demographics row in one
+  // atomic operation — no separate createMany, and no index-based pairing
+  // between two arrays to keep aligned.
   const candidates = await Promise.all(
     candidateSpecs.map((spec) =>
       prisma.candidate.create({
@@ -233,18 +236,11 @@ async function main() {
           orgId: org.id,
           name: spec.name,
           roleAppliedFor: spec.roleAppliedFor,
+          demographics: { create: { orgId: org.id, ...spec.demographics } },
         },
       }),
     ),
   );
-
-  await prisma.candidateDemographics.createMany({
-    data: candidates.map((candidate, i) => ({
-      candidateId: candidate.id,
-      orgId: org.id,
-      ...candidateSpecs[i].demographics,
-    })),
-  });
 
   const [ahmad, siti, rajesh, meiLing, kevin, lakshmi, azri, , ravi, nurul] = candidates;
 

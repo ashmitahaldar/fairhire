@@ -1,8 +1,8 @@
 -- ============================================================
 -- 002_rls_candidate_demographics.sql — RLS for candidate_demographics
 --
--- Run this in the Supabase SQL editor AFTER:
---   npm run db:migrate -- --name normalize_candidate_demographics
+-- Run this in the Supabase SQL editor AFTER applying all pending migrations:
+--   npm run db:migrate
 --
 -- Why a separate file: the `candidate_demographics` table was carved out of
 -- `candidates` so protected/self-reported attributes can be access-controlled
