@@ -9,7 +9,8 @@ export const meetingsRouter = Router();
 
 const createBody = z.object({
   title: z.string().min(1),
-  transcript: z.string().min(1),
+  transcript: z.string().trim().min(1).max(500_000),
+  transcriptFilename: z.string().min(1).max(255).optional(),
   date: z.string().datetime(),
   candidateIds: z.array(z.string().uuid()).min(1),
 });
@@ -38,13 +39,14 @@ meetingsRouter.post('/', async (req, res) => {
     return;
   }
 
-  const { title, transcript, date, candidateIds } = parsed.data;
+  const { title, transcript, transcriptFilename, date, candidateIds } = parsed.data;
 
   const { meeting, runId } = await withManagerContext(req.manager.id, async (tx) => {
     const m = await tx.meeting.create({
       data: {
         title,
         transcript,
+        transcriptFilename,
         date: new Date(date),
         managerId: req.manager.id,
         orgId: req.manager.orgId,
