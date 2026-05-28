@@ -1,0 +1,225 @@
+/* ─────────────────────────────────────────────────────────────
+   FairHire — globals.css
+   Quarterly design direction. Light only (v1).
+   All semantic tokens defined here; shadcn vars remapped to ours.
+   No hex codes anywhere else in the codebase.
+   ───────────────────────────────────────────────────────────── */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Surfaces ─────────────────────────────────────────── */
+    --color-bg:                oklch(0.970 0.006 85);   /* warm paper */
+    --color-surface:           oklch(0.995 0.002 85);   /* card white */
+    --color-surface-sunk:      oklch(0.940 0.008 80);   /* nudge/dismissed tile */
+    --color-surface-active:    oklch(0.945 0.012 70);   /* clicked span paper-stain */
+
+    /* ── Lines ────────────────────────────────────────────── */
+    --color-border:            oklch(0.880 0.005 85);   /* hairline */
+    --color-border-strong:     oklch(0.800 0.006 85);   /* table cell, deeper rule */
+
+    /* ── Text ─────────────────────────────────────────────── */
+    --color-text-primary:      oklch(0.220 0.008 70);   /* ink, not black */
+    --color-text-secondary:    oklch(0.450 0.010 70);
+    --color-text-tertiary:     oklch(0.620 0.010 70);
+    --color-text-inverse:      oklch(0.985 0.003 85);
+
+    /* ── Accent (rationed; oxblood) ───────────────────────── */
+    --color-accent:            oklch(0.450 0.120 25);
+    --color-accent-soft:       oklch(0.450 0.120 25 / 0.08);
+
+    /* ── Flag severities (semantic only, no UI value judgement) ── */
+    --color-flag-high:         oklch(0.450 0.120 25);   /* oxblood */
+    --color-flag-med:          oklch(0.620 0.080 75);   /* muted ochre */
+    --color-flag-low:          oklch(0.520 0.025 240);  /* quiet slate */
+
+    /* ── Focus ────────────────────────────────────────────── */
+    --color-ring:              oklch(0.450 0.120 25);
+
+    /* ── Type scale ───────────────────────────────────────── */
+    --font-serif:              "Source Serif 4", "Source Serif Pro", Georgia, serif;
+    --font-sans:               "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono:               "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* sizes: 12 / 13 / 15 / 16 / 18 / 22 / 32 / 44 */
+    --text-meta:     0.75rem;     /* 12 — mono meta only */
+    --text-xs:       0.8125rem;   /* 13 — mono data */
+    --text-sm:       0.9375rem;   /* 15 — UI default */
+    --text-base:     1rem;        /* 16 — dense table */
+    --text-body:     1.125rem;    /* 18 — serif transcript */
+    --text-section:  1.375rem;    /* 22 — section header */
+    --text-page:     2rem;        /* 32 — page header */
+    --text-display:  2.75rem;     /* 44 — single hero number */
+
+    /* line heights */
+    --lh-serif:      1.5;
+    --lh-ui:         1.38;
+    --lh-mono:       1.33;
+
+    /* tracking */
+    --tracking-meta: 0.06em;      /* mono ALL CAPS labels (reserved use) */
+
+    /* ── Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96 ── */
+
+    /* ── Radius ───────────────────────────────────────────── */
+    --radius-card:  2px;
+    --radius-input: 1px;
+
+    /* ── The one shadow (floating flag detail only) ───────── */
+    --shadow-float:
+      0 1px 0 0 oklch(0.880 0.005 85),
+      0 12px 32px -8px oklch(0.200 0.008 70 / 0.10);
+
+    /* ── shadcn variable remap → our tokens ──────────────── */
+    --background:           var(--color-bg);
+    --foreground:           var(--color-text-primary);
+    --card:                 var(--color-surface);
+    --card-foreground:      var(--color-text-primary);
+    --popover:              var(--color-surface);
+    --popover-foreground:   var(--color-text-primary);
+    --primary:              var(--color-text-primary);
+    --primary-foreground:   var(--color-text-inverse);
+    --secondary:            var(--color-surface-sunk);
+    --secondary-foreground: var(--color-text-primary);
+    --muted:                var(--color-surface-sunk);
+    --muted-foreground:     var(--color-text-secondary);
+    --accent:               var(--color-accent);
+    --accent-foreground:    var(--color-text-inverse);
+    --destructive:          var(--color-flag-high);
+    --destructive-foreground: var(--color-text-inverse);
+    --border:               var(--color-border);
+    --input:                var(--color-border);
+    --ring:                 var(--color-ring);
+    --radius:               var(--radius-card);
+  }
+}
+
+@layer base {
+  html, body {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--lh-ui);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-text-primary);
+  }
+
+  /* No outline on click; oxblood ring on keyboard focus only */
+  :focus-visible {
+    outline: 1px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Hairline rule helper */
+  .fh-hairline { background: var(--color-border); height: 1px; width: 100%; }
+
+  /* Mono meta label: ALL CAPS, tracked, reserved for telemetry/data */
+  .fh-meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+  }
+
+  /* Soft editorial label: serif italic, lowercase. Used for section/card
+     labels that should feel editorial, not telemetric. */
+  .fh-label {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+  }
+
+  /* Card primitive — flat, hairline border, 2px radius, no shadow */
+  .fh-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  /* Confidence fill bar */
+  .fh-fillbar {
+    display: block;
+    height: 2px;
+    width: 56px;
+    background: var(--color-border);
+    position: relative;
+    overflow: hidden;
+  }
+  .fh-fillbar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: var(--fill, 0%);
+    background: var(--color-text-primary);
+  }
+
+  /* Flagged span in transcript: 1px oxblood underline + offset */
+  .fh-span {
+    text-decoration: underline;
+    text-decoration-color: var(--color-accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    transition: text-decoration-thickness 120ms ease, background-color 120ms ease;
+  }
+  .fh-span:hover { text-decoration-thickness: 2px; }
+  .fh-span.is-active {
+    text-decoration-thickness: 2px;
+    background: var(--color-surface-active);
+    padding: 2px 1px;
+    margin: -2px -1px;
+  }
+  .fh-span.is-dismissed {
+    text-decoration: none;
+    color: var(--color-text-secondary);
+  }
+  .fh-span sup {
+    font-family: var(--font-mono);
+    font-size: 0.65em;
+    color: var(--color-text-tertiary);
+    margin-left: 1px;
+    vertical-align: super;
+    letter-spacing: 0;
+  }
+
+  /* Analysis hairline progress rule */
+  .fh-progress {
+    height: 1px;
+    width: 100%;
+    background: var(--color-border);
+    position: relative;
+    overflow: hidden;
+  }
+  .fh-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: var(--progress, 0%);
+    background: var(--color-text-primary);
+    transition: width 200ms linear;
+  }
+}
