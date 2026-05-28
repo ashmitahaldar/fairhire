@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import MeetingUpload from './pages/MeetingUpload';
 import PatternMirror from './pages/PatternMirror';
 import HRDashboard from './pages/HRDashboard';
+import FlagReview from './pages/FlagReview';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/meetings/upload" element={<MeetingUpload />} />
+            <Route path="/meetings/:id" element={<FlagReview />} />
             <Route path="/pattern-mirror" element={<PatternMirror />} />
             <Route element={<RoleGuard role="hr_admin" />}>
               <Route path="/hr" element={<HRDashboard />} />
