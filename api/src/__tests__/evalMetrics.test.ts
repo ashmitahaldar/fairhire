@@ -37,21 +37,21 @@ describe('matchFlags', () => {
     const pred: ScorableFlag[] = [
       { flagType: 'biased_language', excerpt: 'struggle with the late nights given her family' },
     ];
-    expect(matchFlags(pred, gt)).toEqual({ tp: 1, fp: 0, fn: 1 });
+    expect(matchFlags(pred, gt)).toMatchObject({ tp: 1, fp: 0, fn: 1 });
   });
 
   it('does not match across different flag types', () => {
     const pred: ScorableFlag[] = [
       { flagType: 'age_bias', excerpt: 'she might struggle with the late nights given her family' },
     ];
-    expect(matchFlags(pred, gt)).toEqual({ tp: 0, fp: 1, fn: 2 });
+    expect(matchFlags(pred, gt)).toMatchObject({ tp: 0, fp: 1, fn: 2 });
   });
 
   it('counts unmatched predictions as FP and unmatched ground truth as FN', () => {
     const pred: ScorableFlag[] = [
       { flagType: 'hedging_language', excerpt: 'an entirely unrelated phrase' },
     ];
-    expect(matchFlags(pred, gt)).toEqual({ tp: 0, fp: 1, fn: 2 });
+    expect(matchFlags(pred, gt)).toMatchObject({ tp: 0, fp: 1, fn: 2 });
   });
 
   it('matches each ground-truth flag at most once (greedy 1:1)', () => {
@@ -60,7 +60,17 @@ describe('matchFlags', () => {
       { flagType: 'biased_language', excerpt: dup },
       { flagType: 'biased_language', excerpt: dup },
     ];
-    expect(matchFlags(pred, gt)).toEqual({ tp: 1, fp: 1, fn: 1 });
+    expect(matchFlags(pred, gt)).toMatchObject({ tp: 1, fp: 1, fn: 1 });
+  });
+
+  it('returns the unmatched predictions and ground-truth flags', () => {
+    const pred: ScorableFlag[] = [
+      { flagType: 'biased_language', excerpt: 'struggle with the late nights given her family' }, // TP
+      { flagType: 'hedging_language', excerpt: 'a stray prediction' }, // FP
+    ];
+    const result = matchFlags(pred, gt);
+    expect(result.falsePositives.map((f) => f.excerpt)).toEqual(['a stray prediction']);
+    expect(result.falseNegatives.map((f) => f.flagType)).toEqual(['criteria_drift']);
   });
 });
 

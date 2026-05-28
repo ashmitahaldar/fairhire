@@ -62,22 +62,40 @@ export interface PRF {
   f1: number | null;
 }
 
+// Generic over the flag shapes so callers get their own rich objects back in
+// the unmatched lists (e.g. predicted FlagCandidates with confidence/reasoning,
+// ground-truth Flags) — not just counts.
+export interface MatchResult<P extends ScorableFlag, G extends ScorableFlag> extends Counts {
+  /** predictions that matched no ground-truth flag (false positives) */
+  falsePositives: P[];
+  /** ground-truth flags that matched no prediction (false negatives) */
+  falseNegatives: G[];
+}
+
 /** Greedy 1:1 matching — each ground-truth flag matches at most one prediction. */
-export function matchFlags(predicted: ScorableFlag[], groundTruth: ScorableFlag[]): Counts {
+export function matchFlags<P extends ScorableFlag, G extends ScorableFlag>(
+  predicted: P[],
+  groundTruth: G[],
+): MatchResult<P, G> {
   const usedGt = new Set<number>();
+  const falsePositives: P[] = [];
   let tp = 0;
   for (const p of predicted) {
+    let matched = false;
     for (let i = 0; i < groundTruth.length; i++) {
       if (usedGt.has(i)) continue;
       const g = groundTruth[i];
       if (g.flagType === p.flagType && spanOverlap(p.excerpt, g.excerpt) >= OVERLAP_THRESHOLD) {
         usedGt.add(i);
         tp += 1;
+        matched = true;
         break;
       }
     }
+    if (!matched) falsePositives.push(p);
   }
-  return { tp, fp: predicted.length - tp, fn: groundTruth.length - usedGt.size };
+  const falseNegatives = groundTruth.filter((_, i) => !usedGt.has(i));
+  return { tp, fp: falsePositives.length, fn: falseNegatives.length, falsePositives, falseNegatives };
 }
 
 export function addCounts(a: Counts, b: Counts): Counts {

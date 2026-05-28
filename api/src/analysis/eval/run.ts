@@ -14,7 +14,6 @@ import {
   type DemographicDimension,
   type GroupStat,
   type PRF,
-  type ScorableFlag,
 } from './metrics';
 
 // Offline eval: re-runs the analysis engine on every seeded meeting and scores
@@ -27,6 +26,21 @@ interface TypeResult extends Counts, PRF {
   flagType: FlagType;
 }
 
+interface FpDetail {
+  meeting: string;
+  flagType: FlagType;
+  excerpt: string;
+  confidence: number;
+  reasoning: string;
+}
+
+interface FnDetail {
+  meeting: string;
+  flagType: FlagType;
+  excerpt: string;
+  labelledConfidence: number;
+}
+
 interface EvalResult {
   timestamp: string;
   model: string;
@@ -34,6 +48,8 @@ interface EvalResult {
   degradedMeetings: number;
   overall: Counts & PRF;
   perType: TypeResult[];
+  falsePositives: FpDetail[];
+  falseNegatives: FnDetail[];
   fairness: { dimension: DemographicDimension; groups: GroupStat[] }[];
 }
 
@@ -46,6 +62,7 @@ function renderMarkdown(r: EvalResult): string {
     `Model: \`${r.model}\` · meetings evaluated: ${r.meetingsEvaluated}` +
       (r.degradedMeetings > 0 ? ` · ${r.degradedMeetings} LLM-degraded (rules-only)` : ''),
   );
+
   lines.push('');
   lines.push('## Detection (precision / recall / F1)');
   lines.push('| Category | TP | FP | FN | P | R | F1 |');
@@ -60,6 +77,23 @@ function renderMarkdown(r: EvalResult): string {
         `${fmt(t.precision)} | ${fmt(t.recall)} | ${fmt(t.f1)} |`,
     );
   }
+
+  lines.push('');
+  lines.push(`## False positives — engine flagged, not labelled (${r.falsePositives.length})`);
+  if (r.falsePositives.length === 0) lines.push('_none_');
+  for (const fp of r.falsePositives) {
+    lines.push(`- **${fp.flagType}** (conf ${fp.confidence.toFixed(2)}) · _${fp.meeting}_`);
+    lines.push(`  > ${fp.excerpt}`);
+  }
+
+  lines.push('');
+  lines.push(`## False negatives — labelled, engine missed (${r.falseNegatives.length})`);
+  if (r.falseNegatives.length === 0) lines.push('_none_');
+  for (const fn of r.falseNegatives) {
+    lines.push(`- **${fn.flagType}** (labelled conf ${fn.labelledConfidence.toFixed(2)}) · _${fn.meeting}_`);
+    lines.push(`  > ${fn.excerpt}`);
+  }
+
   lines.push('');
   lines.push('## Fairness — flag totals by demographic group');
   lines.push('_Small samples (n < 10) are indicative only, not statistically significant._');
@@ -82,7 +116,7 @@ async function main(): Promise<void> {
     select: {
       title: true,
       transcript: true,
-      flags: { select: { flagType: true, excerpt: true } },
+      flags: { select: { flagType: true, excerpt: true, confidenceScore: true } },
       candidates: {
         select: {
           candidate: {
@@ -108,24 +142,37 @@ async function main(): Promise<void> {
     FLAG_TYPES.map((t) => [t, { tp: 0, fp: 0, fn: 0 }] as [FlagType, Counts]),
   );
   const candidateFlagging = new Map<string, CandidateFlagging>();
+  const falsePositives: FpDetail[] = [];
+  const falseNegatives: FnDetail[] = [];
   let degraded = 0;
 
   for (const m of meetings) {
-    const groundTruth: ScorableFlag[] = m.flags.map((f) => ({
-      flagType: f.flagType,
-      excerpt: f.excerpt,
-    }));
     const { flags, llmOk } = await router.analyse(m.transcript);
     if (!llmOk) degraded += 1;
-    const predicted: ScorableFlag[] = flags.map((f) => ({
-      flagType: f.flagType,
-      excerpt: f.excerpt,
-    }));
 
-    overall = addCounts(overall, matchFlags(predicted, groundTruth));
+    const match = matchFlags(flags, m.flags);
+    overall = addCounts(overall, match);
+    for (const fp of match.falsePositives) {
+      falsePositives.push({
+        meeting: m.title,
+        flagType: fp.flagType,
+        excerpt: fp.excerpt,
+        confidence: fp.confidenceScore,
+        reasoning: fp.reasoning,
+      });
+    }
+    for (const fn of match.falseNegatives) {
+      falseNegatives.push({
+        meeting: m.title,
+        flagType: fn.flagType,
+        excerpt: fn.excerpt,
+        labelledConfidence: fn.confidenceScore,
+      });
+    }
+
     for (const t of FLAG_TYPES) {
-      const p = predicted.filter((f) => f.flagType === t);
-      const g = groundTruth.filter((f) => f.flagType === t);
+      const p = flags.filter((f) => f.flagType === t);
+      const g = m.flags.filter((f) => f.flagType === t);
       if (p.length === 0 && g.length === 0) continue;
       perType.set(t, addCounts(perType.get(t)!, matchFlags(p, g)));
     }
@@ -145,11 +192,11 @@ async function main(): Promise<void> {
         };
         candidateFlagging.set(c.id, rec);
       }
-      rec.flagCount += predicted.length;
+      rec.flagCount += flags.length;
     }
 
     console.error(
-      `  ${m.title}: ${predicted.length} predicted vs ${groundTruth.length} labelled` +
+      `  ${m.title}: ${flags.length} predicted vs ${m.flags.length} labelled` +
         (llmOk ? '' : ' (LLM degraded — rules only)'),
     );
   }
@@ -165,6 +212,8 @@ async function main(): Promise<void> {
       const counts = perType.get(t)!;
       return { flagType: t, ...counts, ...computePRF(counts) };
     }),
+    falsePositives,
+    falseNegatives,
     fairness: DEMOGRAPHIC_DIMENSIONS.map((dimension) => ({
       dimension,
       groups: fairnessByDimension(candidates, dimension),
