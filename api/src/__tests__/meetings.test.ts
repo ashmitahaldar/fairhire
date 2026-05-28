@@ -134,4 +134,42 @@ describe('POST /meetings', () => {
     expect(mockRunAnalysis).not.toHaveBeenCalled();
     expect(mockAnalysisRunCreate).not.toHaveBeenCalled();
   });
+
+  it('forwards an optional transcriptFilename to meeting.create', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockMeetingCreate.mockResolvedValue({
+      id: 'meeting-2',
+      managerId: managerA.id,
+      title: validBody.title,
+      candidates: [],
+    });
+    mockAnalysisRunCreate.mockResolvedValue({ id: 'run-2' });
+
+    const res = await request(app)
+      .post('/meetings')
+      .send({ ...validBody, transcriptFilename: 'panel-debrief.txt' });
+
+    expect(res.status).toBe(201);
+    expect(mockMeetingCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ transcriptFilename: 'panel-debrief.txt' }),
+      })
+    );
+    await flushSetImmediate();
+  });
+
+  it('returns 400 when the transcript exceeds the max length', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app)
+      .post('/meetings')
+      .send({ ...validBody, transcript: 'x'.repeat(500_001) });
+
+    expect(res.status).toBe(400);
+    await flushSetImmediate();
+    expect(mockMeetingCreate).not.toHaveBeenCalled();
+    expect(mockRunAnalysis).not.toHaveBeenCalled();
+  });
 });
