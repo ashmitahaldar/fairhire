@@ -15,6 +15,7 @@
     "dev:api": "npm run dev --workspace=api",
     "seed:reset": "npx tsx scripts/seed.ts",
     "check-env": "npx tsx scripts/check-env.ts",
+    "eval": "npx tsx api/src/analysis/eval/run.ts",
     "type-check": "npm run type-check --workspaces --if-present",
     "lint": "eslint .",
     "db:migrate": "prisma migrate dev",

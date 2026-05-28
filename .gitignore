@@ -3,6 +3,7 @@ dist/
 shared/dist/
 api/dist/
 web/dist/
+evals/runs/
 .prisma/
 .env
 .env.local
