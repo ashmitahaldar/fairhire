@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
@@ -11,5 +11,11 @@ export default defineConfig({
     postcss: {
       plugins: [tailwindcss('./src/tailwind.config.ts'), autoprefixer()],
     },
+  },
+  test: {
+    environment: 'jsdom',
+    // api.ts reads VITE_API_BASE_URL at module load; provide it so test imports
+    // (which pull in the data hooks) don't throw.
+    env: { VITE_API_BASE_URL: 'http://localhost:3000' },
   },
 });
