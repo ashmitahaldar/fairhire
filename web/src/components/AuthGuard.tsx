@@ -40,8 +40,13 @@ export function AuthGuard() {
       .catch(() => setSyncState('error'));
   }, [isSignedIn, user, syncState, getToken]);
 
-  if (!isLoaded || syncState === 'idle' || syncState === 'syncing') return <div>Loading...</div>;
+  // Order matters: SignIn must be reachable from a fresh session. The sync
+  // useEffect only fires when isSignedIn, so syncState stays 'idle' for a
+  // signed-out user — gating Loading on it ahead of the !isSignedIn check
+  // would trap them on Loading forever.
+  if (!isLoaded) return <div>Loading...</div>;
   if (!isSignedIn) return <SignIn />;
+  if (syncState === 'idle' || syncState === 'syncing') return <div>Loading...</div>;
   if (syncState === 'error') return <div>Failed to set up your account. Please refresh.</div>;
 
   return (
