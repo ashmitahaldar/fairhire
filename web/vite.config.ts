@@ -4,6 +4,11 @@ import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
+  // .env lives at the monorepo root (shared with the api workspace, which
+  // reads it via --env-file=../.env). Without this, Vite defaults envDir to
+  // web/ and silently skips loading VITE_* vars — main.tsx then throws on
+  // the missing publishable key at module eval and React never mounts.
+  envDir: '..',
   plugins: [react()],
   css: {
     // tailwind.config.ts lives in src/ (design drop), so point PostCSS at it
