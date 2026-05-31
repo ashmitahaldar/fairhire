@@ -10,7 +10,7 @@ jest.mock('@clerk/express', () => ({
 
 jest.mock('../lib/prisma', () => ({
   prisma: {
-    candidate: { findMany: jest.fn() },
+    candidate: { findMany: jest.fn(), create: jest.fn() },
   },
   systemPrisma: {
     manager: { findUnique: jest.fn() },
@@ -23,6 +23,7 @@ import { prisma, systemPrisma, withManagerContext } from '../lib/prisma';
 
 const mockSystemManagerFindUnique = systemPrisma.manager.findUnique as jest.Mock;
 const mockCandidateFindMany = prisma.candidate.findMany as jest.Mock;
+const mockCandidateCreate = prisma.candidate.create as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 
 const app = createApp();
@@ -59,5 +60,89 @@ describe('GET /candidates', () => {
 
     expect(res.status).toBe(401);
     expect(mockCandidateFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /candidates', () => {
+  it('creates a candidate scoped to the manager\'s org and returns 201', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockCandidateCreate.mockResolvedValue({
+      id: 'new-c',
+      name: 'Hannah Lim',
+      roleAppliedFor: 'Associate Analyst',
+    });
+
+    const res = await request(app)
+      .post('/candidates')
+      .send({ name: 'Hannah Lim', roleAppliedFor: 'Associate Analyst' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({
+      id: 'new-c',
+      name: 'Hannah Lim',
+      roleAppliedFor: 'Associate Analyst',
+    });
+    // orgId comes from the authenticated manager, not the request body — so a
+    // forged orgId can't smuggle a candidate into another org.
+    expect(mockCandidateCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { name: 'Hannah Lim', roleAppliedFor: 'Associate Analyst', orgId: managerA.orgId },
+      }),
+    );
+    expect(mockWithManagerContext).toHaveBeenCalledWith(managerA.id, expect.any(Function));
+  });
+
+  it('trims surrounding whitespace from name and role', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockCandidateCreate.mockResolvedValue({
+      id: 'new-c',
+      name: 'Hannah Lim',
+      roleAppliedFor: 'Associate Analyst',
+    });
+
+    await request(app)
+      .post('/candidates')
+      .send({ name: '  Hannah Lim  ', roleAppliedFor: '  Associate Analyst  ' });
+
+    expect(mockCandidateCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { name: 'Hannah Lim', roleAppliedFor: 'Associate Analyst', orgId: managerA.orgId },
+      }),
+    );
+  });
+
+  it('returns 400 when name is empty', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app)
+      .post('/candidates')
+      .send({ name: '   ', roleAppliedFor: 'Associate Analyst' });
+
+    expect(res.status).toBe(400);
+    expect(mockCandidateCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when role is missing', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app).post('/candidates').send({ name: 'Hannah Lim' });
+
+    expect(res.status).toBe(400);
+    expect(mockCandidateCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetAuth.mockReturnValue({ userId: null });
+
+    const res = await request(app)
+      .post('/candidates')
+      .send({ name: 'Hannah Lim', roleAppliedFor: 'Associate Analyst' });
+
+    expect(res.status).toBe(401);
+    expect(mockCandidateCreate).not.toHaveBeenCalled();
   });
 });

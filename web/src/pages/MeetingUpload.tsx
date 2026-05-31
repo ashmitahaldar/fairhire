@@ -1,7 +1,8 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { readTranscriptFile, validateTranscript } from '../lib/upload';
-import { useCandidates, useCreateMeeting } from '../lib/uploadApi';
+import { useCandidates, useCreateCandidate, useCreateMeeting } from '../lib/uploadApi';
+import type { CandidateOption } from '../lib/upload';
 
 // yyyy-MM-ddThh:mm for <input type="datetime-local">, in local time.
 function toLocalDatetimeValue(d: Date): string {
@@ -20,6 +21,7 @@ export default function MeetingUpload() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState(() => toLocalDatetimeValue(new Date()));
   const [error, setError] = useState<string | null>(null);
+  const [addingCandidate, setAddingCandidate] = useState(false);
 
   const toggleCandidate = (id: string) => {
     setSelected((prev) => {
@@ -40,6 +42,11 @@ export default function MeetingUpload() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not read that file.');
     }
+  };
+
+  const onCandidateCreated = (c: CandidateOption) => {
+    setSelected((prev) => new Set(prev).add(c.id));
+    setAddingCandidate(false);
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -109,15 +116,34 @@ export default function MeetingUpload() {
         </div>
 
         <div>
-          <span className="fh-label block mb-2">Candidates</span>
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="fh-label">Candidates</span>
+            <button
+              type="button"
+              onClick={() => setAddingCandidate((v) => !v)}
+              className="text-xs font-medium text-ink-secondary hover:text-ink transition-colors duration-120"
+            >
+              {addingCandidate ? 'Cancel' : '+ Add a new candidate'}
+            </button>
+          </div>
+
+          {addingCandidate && (
+            <AddCandidateForm
+              onCreated={onCandidateCreated}
+              onCancel={() => setAddingCandidate(false)}
+            />
+          )}
+
           {candidatesQuery.isLoading && (
             <p className="text-sm text-ink-tertiary">Loading candidates…</p>
           )}
           {candidatesQuery.isError && (
             <p className="text-sm text-ink-tertiary">Couldn’t load candidates.</p>
           )}
-          {candidatesQuery.data && candidatesQuery.data.length === 0 && (
-            <p className="text-sm text-ink-tertiary">No candidates in your org yet.</p>
+          {candidatesQuery.data && candidatesQuery.data.length === 0 && !addingCandidate && (
+            <p className="text-sm text-ink-tertiary">
+              No candidates in your org yet — use “Add a new candidate” above.
+            </p>
           )}
           {candidatesQuery.data && candidatesQuery.data.length > 0 && (
             <div className="space-y-1.5">
@@ -170,6 +196,96 @@ export default function MeetingUpload() {
           {createMeeting.isPending ? 'Analysing…' : 'Upload & analyse'}
         </button>
       </form>
+    </div>
+  );
+}
+
+// ── Add-candidate sub-form ────────────────────────────────────────────────
+// Inline expand/collapse on the upload form so the user can add a missing
+// candidate without leaving the flow. Lives on a sunk-surface tile to stay
+// visually contained to the Candidates section. onCreated auto-selects the
+// new row in the parent's picker so the next step is one continuous action.
+
+interface AddCandidateFormProps {
+  onCreated: (candidate: CandidateOption) => void;
+  onCancel: () => void;
+}
+
+function AddCandidateForm({ onCreated, onCancel }: AddCandidateFormProps) {
+  const createCandidate = useCreateCandidate();
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setError(null);
+    const trimmedName = name.trim();
+    const trimmedRole = role.trim();
+    if (!trimmedName || !trimmedRole) {
+      setError('Both name and role are required.');
+      return;
+    }
+    try {
+      const created = await createCandidate.mutateAsync({
+        name: trimmedName,
+        roleAppliedFor: trimmedRole,
+      });
+      onCreated(created);
+    } catch {
+      setError('Could not add candidate. Please try again.');
+    }
+  };
+
+  // Enter-to-submit on either input. Nested <form> inside the outer upload
+  // form would be invalid, so this is a plain div with explicit handlers.
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submit();
+    }
+  };
+
+  return (
+    <div className="bg-surface-sunk p-4 mb-3 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="Candidate name"
+          aria-label="Candidate name"
+          autoFocus
+          className="w-full bg-surface border border-hairline rounded-input px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary outline-none focus:border-ink-secondary transition-colors duration-120"
+        />
+        <input
+          type="text"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="Role applied for"
+          aria-label="Role applied for"
+          className="w-full bg-surface border border-hairline rounded-input px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary outline-none focus:border-ink-secondary transition-colors duration-120"
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={createCandidate.isPending}
+          className="text-xs font-medium text-ink-inverse bg-ink px-3 py-1.5 rounded-input hover:bg-accent transition-colors duration-120 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {createCandidate.isPending ? 'Adding…' : 'Add'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs font-medium text-ink-secondary hover:text-ink transition-colors duration-120"
+        >
+          Cancel
+        </button>
+        {error && <span className="text-xs text-accent">{error}</span>}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/clerk-react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
 import type { CandidateOption, CreateMeetingInput } from './upload';
 
@@ -12,6 +12,32 @@ export function useCandidates() {
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
       return apiFetch<CandidateOption[]>('/candidates', token);
+    },
+  });
+}
+
+export interface CreateCandidateInput {
+  name: string;
+  roleAppliedFor: string;
+}
+
+// Creates a candidate in the manager's org. On success the candidates query
+// is invalidated so the upload form's picker shows the new row immediately.
+// The caller receives the created candidate (with id) and can auto-select it.
+export function useCreateCandidate() {
+  const { getToken } = useAuth();
+  const qc = useQueryClient();
+  return useMutation<CandidateOption, Error, CreateCandidateInput>({
+    mutationFn: async (input) => {
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      return apiFetch<CandidateOption>('/candidates', token, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['candidates'] });
     },
   });
 }
