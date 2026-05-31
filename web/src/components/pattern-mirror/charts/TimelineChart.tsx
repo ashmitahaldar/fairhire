@@ -41,13 +41,17 @@ export function TimelineChart({
     return sum / n;
   });
   const maxRoll = Math.max(0.001, ...rolling);
+  // Format the M/L prefix AFTER reversing so M lands at the path's first
+  // command — putting it before reverse left an "L … M" string that SVG
+  // rejects (this matches and fixes the bug carried over from the JSX).
   const rollPath = rolling
     .map((v, i) => {
       const x = ((days - i) / days) * innerW;
       const y = innerH - (v / maxRoll) * (innerH * 0.55);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .reverse()
+    .map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt}`)
     .join(' ');
 
   const axisTicks = [0, 30, 60, 90].map((d) => ({ daysAgo: d, x: xFor(d) }));

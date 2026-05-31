@@ -51,13 +51,21 @@ type TransactionClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>
  * Runs fn inside a transaction with app.current_manager_id set.
  * RLS policies on all tables check this session variable, so every
  * query inside fn is automatically scoped to the given manager.
+ *
+ * Timeout is raised well above Prisma's 5s default: the database lives in
+ * Supabase Tokyo, and nested includes (e.g. meeting → candidates →
+ * demographics + flags + analysisRuns) plus round-trip overshoot 5s
+ * routinely. maxWait covers connection-pool acquisition under contention.
  */
 export async function withManagerContext<T>(
   managerId: string,
   fn: (tx: TransactionClient) => Promise<T>
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.current_manager_id', ${managerId}, true)`;
-    return fn(tx);
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_manager_id', ${managerId}, true)`;
+      return fn(tx);
+    },
+    { timeout: 30_000, maxWait: 10_000 },
+  );
 }

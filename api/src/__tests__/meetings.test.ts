@@ -20,6 +20,9 @@ jest.mock('../lib/prisma', () => ({
   },
   systemPrisma: {
     manager: { findUnique: jest.fn() },
+    // requireOwnership uses systemPrisma so the auth check itself isn't
+    // subject to RLS — it is the authorisation gate.
+    meeting: { findUnique: jest.fn() },
   },
   withManagerContext: jest.fn(),
 }));
@@ -35,8 +38,8 @@ import { prisma, systemPrisma, withManagerContext } from '../lib/prisma';
 import { runAnalysis } from '../analysis/analyseTranscript';
 
 const mockSystemManagerFindUnique = systemPrisma.manager.findUnique as jest.Mock;
+const mockSystemMeetingFindUnique = systemPrisma.meeting.findUnique as jest.Mock;
 const mockMeetingFindMany = prisma.meeting.findMany as jest.Mock;
-const mockMeetingFindUnique = prisma.meeting.findUnique as jest.Mock;
 const mockMeetingCreate = prisma.meeting.create as jest.Mock;
 const mockAnalysisRunCreate = prisma.analysisRun.create as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
@@ -78,8 +81,8 @@ describe('GET /meetings/:id', () => {
   it('returns 403 when fetching a meeting owned by a different manager', async () => {
     mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
     mockSystemManagerFindUnique.mockResolvedValue(managerA);
-    // requireOwnership queries this meeting; it belongs to B, not A
-    mockMeetingFindUnique.mockResolvedValue({ managerId: managerB.id });
+    // requireOwnership uses systemPrisma; this meeting belongs to B, not A
+    mockSystemMeetingFindUnique.mockResolvedValue({ managerId: managerB.id });
 
     const res = await request(app).get(`/meetings/${managerB.id}`);
 
