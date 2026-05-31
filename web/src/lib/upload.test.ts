@@ -25,4 +25,19 @@ describe('readTranscriptFile', () => {
     const file = new File(['data'], 'resume.pdf', { type: 'application/pdf' });
     await expect(readTranscriptFile(file)).rejects.toThrow(/\.txt/);
   });
+
+  it('rejects a .txt file whose decoded text exceeds the character cap', async () => {
+    const file = new File(['x'.repeat(MAX_TRANSCRIPT_CHARS + 1)], 'long.txt', { type: 'text/plain' });
+    await expect(readTranscriptFile(file)).rejects.toThrow(/too large/);
+  });
+
+  // Locks the bytes-vs-characters fix: a non-ASCII file under the character
+  // cap but well over it in UTF-8 bytes (each CJK char is ~3 bytes) must
+  // still be accepted, because the server measures string length.
+  it('accepts a non-ASCII file under the character cap even if its byte size exceeds it', async () => {
+    const text = '字'.repeat(MAX_TRANSCRIPT_CHARS - 1);
+    const file = new File([text], 'jp.txt', { type: 'text/plain' });
+    expect(file.size).toBeGreaterThan(MAX_TRANSCRIPT_CHARS);
+    await expect(readTranscriptFile(file)).resolves.toHaveLength(text.length);
+  });
 });

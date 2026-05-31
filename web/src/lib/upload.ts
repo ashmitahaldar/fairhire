@@ -35,8 +35,13 @@ export async function readTranscriptFile(file: File): Promise<string> {
   if (!file.name.toLowerCase().endsWith(ACCEPTED_TRANSCRIPT_EXT)) {
     throw new Error('Only .txt files are supported.');
   }
-  if (file.size > MAX_TRANSCRIPT_CHARS) {
+  // Decode first, then measure characters — file.size is bytes while the
+  // server cap (Zod z.string().max(500_000)) measures JS string length, so a
+  // non-ASCII transcript could otherwise be rejected at the wrong boundary
+  // (UTF-8 inflates bytes-per-char) or sneak past the client check entirely.
+  const text = await file.text();
+  if (text.length > MAX_TRANSCRIPT_CHARS) {
     throw new Error(`File is too large (max ${MAX_TRANSCRIPT_CHARS.toLocaleString()} characters).`);
   }
-  return file.text();
+  return text;
 }

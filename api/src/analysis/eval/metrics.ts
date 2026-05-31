@@ -1,7 +1,7 @@
 import type { FlagType } from '@fairhire/shared';
 
-// Pure scoring helpers for the eval script (scripts/eval.ts). No I/O — unit
-// tested in api/src/__tests__/evalMetrics.test.ts.
+// Pure scoring helpers for the eval script (api/src/analysis/eval/run.ts). No
+// I/O — unit tested in api/src/__tests__/evalMetrics.test.ts.
 
 // ── Span matching ────────────────────────────────────────────────────────────
 // A predicted flag matches a labelled (ground-truth) flag iff they share the
