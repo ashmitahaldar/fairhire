@@ -140,7 +140,7 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
               ←
             </span>
             <span className="underline decoration-hairline underline-offset-4 group-hover:decoration-ink">
-              All candidates
+              All meetings
             </span>
           </Link>
           <InitialsAvatar initials={initialsOf(manager.name)} />

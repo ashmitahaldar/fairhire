@@ -25,7 +25,17 @@ meetingsRouter.get('/', async (req, res) => {
   const meetings = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findMany({
       where: { managerId: req.manager.id },
-      include: { candidates: { include: candidateWithDemographics } },
+      include: {
+        candidates: { include: candidateWithDemographics },
+        // Flag count and latest run status so the Dashboard list renders
+        // without N+1 followups; full flag rows live on GET /:id.
+        _count: { select: { flags: true } },
+        analysisRuns: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { status: true },
+        },
+      },
       orderBy: { date: 'desc' },
     });
   });
