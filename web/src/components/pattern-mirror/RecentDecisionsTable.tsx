@@ -5,8 +5,13 @@ interface RecentDecisionsTableProps {
   showRoleCol?: boolean;
 }
 
-// Quiet, dense, scannable decisions table — no zebra rows, single hairline rule
-// per row, hover reveal of the "Open ›" affordance.
+// Quiet, dense, scannable decisions table — no zebra rows, single hairline
+// rule per row. Read-only on the Mirror screen: the mock data carries no
+// real meeting IDs to navigate to, so the row-as-link affordance from the
+// original mockup is intentionally omitted here. When Pattern Mirror is
+// wired to real data and each row corresponds to a real meeting, restore
+// the row click handler + the hover-revealed "Open ›" cell from the
+// Dashboard's MeetingsTable for parity.
 export function RecentDecisionsTable({ decisions, showRoleCol = true }: RecentDecisionsTableProps) {
   return (
     <div className="border-t border-hairline">
@@ -21,16 +26,12 @@ export function RecentDecisionsTable({ decisions, showRoleCol = true }: RecentDe
             <th className="py-3 pr-4 font-normal border-b border-hairline text-right w-[8%]">
               Flags
             </th>
-            <th className="py-3 pr-4 font-normal border-b border-hairline w-[14%]">Outcome</th>
-            <th className="py-3 font-normal border-b border-hairline text-right w-[10%]" />
+            <th className="py-3 font-normal border-b border-hairline w-[14%]">Outcome</th>
           </tr>
         </thead>
         <tbody>
           {decisions.map((d) => (
-            <tr
-              key={d.id}
-              className="group text-ink hover:bg-surface-sunk transition-colors duration-120 cursor-pointer"
-            >
+            <tr key={d.id} className="text-ink">
               <td className="py-3 pr-4 border-b border-hairline font-mono text-sm text-ink-secondary tabular-nums">
                 {d.date}
               </td>
@@ -44,13 +45,8 @@ export function RecentDecisionsTable({ decisions, showRoleCol = true }: RecentDe
               <td className="py-3 pr-4 border-b border-hairline font-mono text-base tabular-nums text-right">
                 {d.flags}
               </td>
-              <td className="py-3 pr-4 border-b border-hairline">
+              <td className="py-3 border-b border-hairline">
                 <OutcomeBadge outcome={d.outcome} />
-              </td>
-              <td className="py-3 border-b border-hairline text-right text-sm text-ink-tertiary">
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-120">
-                  Open ›
-                </span>
               </td>
             </tr>
           ))}

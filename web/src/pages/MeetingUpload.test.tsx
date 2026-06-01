@@ -21,8 +21,14 @@ const fetchMock = () => globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
 const postCall = () =>
   fetchMock().mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
 
+// Capture the real fetch (jsdom-installed) so afterEach can put it back —
+// without this the stub would leak into other test files and create
+// order-dependent failures the first time another suite assumes a real fetch.
+let originalFetch: typeof globalThis.fetch;
+
 beforeEach(() => {
   navigateSpy.mockClear();
+  originalFetch = globalThis.fetch;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/candidates')) {
@@ -40,6 +46,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
 });
 

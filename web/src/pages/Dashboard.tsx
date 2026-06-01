@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useManager } from '../lib/ManagerContext';
 import { useMeetings, type AnalysisStatus, type MeetingListItem } from '../lib/meetingsApi';
@@ -85,7 +86,7 @@ function SummarySentence({ count, flags }: { count: number; flags: number }) {
   );
 }
 
-function Stat({ children }: { children: React.ReactNode }) {
+function Stat({ children }: { children: ReactNode }) {
   return <span className="font-mono text-base tabular-nums">{children}</span>;
 }
 
@@ -130,11 +131,23 @@ function MeetingsTable({ meetings }: { meetings: MeetingListItem[] }) {
           {meetings.map((m) => {
             const candidate = m.candidates[0]?.candidate;
             const status = m.analysisRuns[0]?.status ?? 'pending';
+            const open = () => navigate(`/meetings/${m.id}`);
             return (
               <tr
                 key={m.id}
-                onClick={() => navigate(`/meetings/${m.id}`)}
-                className="group text-ink hover:bg-surface-sunk transition-colors duration-120 cursor-pointer"
+                role="link"
+                tabIndex={0}
+                onClick={open}
+                onKeyDown={(e) => {
+                  // Enter/Space activate the row, matching native link semantics
+                  // declared by role="link" above. preventDefault on Space keeps
+                  // the page from scrolling before navigation kicks in.
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    open();
+                  }
+                }}
+                className="group text-ink hover:bg-surface-sunk focus:bg-surface-sunk focus:outline-none transition-colors duration-120 cursor-pointer"
               >
                 <td className="py-3 pr-4 border-b border-hairline font-mono text-sm text-ink-secondary tabular-nums">
                   {formatDate(m.date)}

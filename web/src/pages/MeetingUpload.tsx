@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { readTranscriptFile, validateTranscript } from '../lib/upload';
 import { useCandidates, useCreateCandidate, useCreateMeeting } from '../lib/uploadApi';
@@ -238,7 +238,7 @@ function AddCandidateForm({ onCreated, onCancel }: AddCandidateFormProps) {
 
   // Enter-to-submit on either input. Nested <form> inside the outer upload
   // form would be invalid, so this is a plain div with explicit handlers.
-  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       void submit();

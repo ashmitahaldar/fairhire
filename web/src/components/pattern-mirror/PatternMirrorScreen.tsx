@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { MirrorData } from '../../lib/mirrorData';
 import { Section } from './Section';
 import { NudgeCard } from './NudgeCard';
@@ -26,7 +26,9 @@ export function PatternMirrorScreen({ data }: PatternMirrorScreenProps) {
       <MirrorHeader data={data} period={period} onChangePeriod={setPeriod} />
       <TabBar active={tab} onChange={setTab} />
       <div className="pt-10 pb-32">
-        {tab === 'Overview' && <OverviewTab data={data} />}
+        {tab === 'Overview' && (
+          <OverviewTab data={data} onOpenAllDecisions={() => setTab('Decisions')} />
+        )}
         {tab === 'Decisions' && <DecisionsTab data={data} />}
         {tab === 'Language' && <LanguageTab data={data} />}
         {tab === 'Demographics' && <DemographicsTab data={data} />}
@@ -75,7 +77,7 @@ function MirrorHeader({
   );
 }
 
-function Stat({ children }: { children: React.ReactNode }) {
+function Stat({ children }: { children: ReactNode }) {
   return <span className="font-mono text-base tabular-nums">{children}</span>;
 }
 
@@ -116,7 +118,13 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 
 // ── Tab bodies ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ data }: { data: MirrorData }) {
+function OverviewTab({
+  data,
+  onOpenAllDecisions,
+}: {
+  data: MirrorData;
+  onOpenAllDecisions: () => void;
+}) {
   const visibleNudges = data.nudges.slice(0, 3);
   return (
     <>
@@ -159,15 +167,19 @@ function OverviewTab({ data }: { data: MirrorData }) {
 
       <Section
         title="Recent decisions"
-        caption="Last 8 interviews · click a row to open the debrief"
+        caption="Last 8 interviews"
         anchor="recent"
         action={
-          <a
-            href="#all"
+          // The full decisions list lives under the Decisions tab; the in-page
+          // `#all` anchor we shipped initially had no target on this tab. Make
+          // the affordance actually take the user there by switching tabs.
+          <button
+            type="button"
+            onClick={onOpenAllDecisions}
             className="text-sm text-ink-secondary hover:text-ink underline decoration-hairline underline-offset-4 hover:decoration-ink whitespace-nowrap"
           >
             View all {data.decisions.length} →
-          </a>
+          </button>
         }
       >
         <RecentDecisionsTable decisions={data.recentDecisions} />
