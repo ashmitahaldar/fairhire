@@ -228,7 +228,9 @@ async function main() {
 
   // Nested create writes each candidate and its 1:1 demographics row in one
   // atomic operation — no separate createMany, and no index-based pairing
-  // between two arrays to keep aligned.
+  // between two arrays to keep aligned. demographics.orgId is derived by
+  // Prisma from the parent candidate via the composite FK, so we don't (and
+  // can't) pass it here.
   const candidates = await Promise.all(
     candidateSpecs.map((spec) =>
       prisma.candidate.create({
@@ -236,7 +238,7 @@ async function main() {
           orgId: org.id,
           name: spec.name,
           roleAppliedFor: spec.roleAppliedFor,
-          demographics: { create: { orgId: org.id, ...spec.demographics } },
+          demographics: { create: { ...spec.demographics } },
         },
       }),
     ),
@@ -868,39 +870,10 @@ async function main() {
     ],
   });
 
-  // Marcus Chen — clean (2 low-confidence false positives, both dismissed)
-  await prisma.flag.createMany({
-    data: [
-      {
-        orgId: org.id,
-        meetingId: m12.id,
-        flagType: 'age_bias',
-        excerpt: 'Kevin showed high energy and genuine enthusiasm throughout the process.',
-        reasoning:
-          'Low confidence: "energy" mentioned in a positive context. No age-related concern present — this is a positive observation about a young candidate, not a comparative dismissal of older candidates.',
-        confidenceScore: 0.28,
-        suggestedAlt: null,
-        dismissed: true,
-        dismissReason: 'False positive. This is a positive observation with no comparative age bias present.',
-        dismissedAt: new Date('2026-03-06'),
-        dismissedBy: marcus.id,
-      },
-      {
-        orgId: org.id,
-        meetingId: m12.id,
-        flagType: 'criteria_drift',
-        excerpt: 'He would represent the team well externally from day one.',
-        reasoning:
-          'Low confidence: external representation mentioned. No language or ethnicity-based concern — positive assessment of a Chinese candidate that does not imply differential standards.',
-        confidenceScore: 0.32,
-        suggestedAlt: null,
-        dismissed: true,
-        dismissReason: 'False positive. Straightforward positive assessment with no comparative bias evident.',
-        dismissedAt: new Date('2026-03-06'),
-        dismissedBy: marcus.id,
-      },
-    ],
-  });
+  // Marcus Chen — clean (no labelled flags). Earlier seed had 2 dismissed
+  // sub-floor (conf 0.28 / 0.32) labels here — removed during calibration:
+  // their excerpts were positive statements that didn't fit the assigned
+  // flagTypes and structurally couldn't be matched by the engine.
 
   // ─── Analysis runs ────────────────────────────────────────────────────────────
 

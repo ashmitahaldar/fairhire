@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../lib/prisma';
+import { systemPrisma } from '../lib/prisma';
+
+// Ownership checks run BEFORE the manager context is established for the
+// handler — they ARE the authorisation gate, not subject to RLS. Use
+// systemPrisma (RLS-bypassing) so the lookup can see the row at all; the
+// managerId comparison below is what enforces access.
 
 type OwnershipCheck = (req: Request) => Promise<boolean>;
 
 const checks: Record<string, OwnershipCheck> = {
   meeting: async (req) => {
-    const meeting = await prisma.meeting.findUnique({
+    const meeting = await systemPrisma.meeting.findUnique({
       where: { id: req.params.id },
       select: { managerId: true },
     });
@@ -13,7 +18,7 @@ const checks: Record<string, OwnershipCheck> = {
   },
 
   decision: async (req) => {
-    const decision = await prisma.decision.findUnique({
+    const decision = await systemPrisma.decision.findUnique({
       where: { id: req.params.id },
       select: { managerId: true },
     });
@@ -21,7 +26,7 @@ const checks: Record<string, OwnershipCheck> = {
   },
 
   flag: async (req) => {
-    const flag = await prisma.flag.findUnique({
+    const flag = await systemPrisma.flag.findUnique({
       where: { id: req.params.id },
       select: { meeting: { select: { managerId: true } } },
     });

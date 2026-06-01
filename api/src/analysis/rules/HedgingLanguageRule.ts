@@ -2,7 +2,11 @@ import { Rule, type PhraseEntry } from './Rule';
 
 const PHRASES: PhraseEntry[] = [
   {
-    pattern: /culture and team fit/i,
+    // Negative lookahead skips the seed's positive note-header form
+    // ("Culture and team fit: Positive") — a neutral assessment, not a vague
+    // justification. Still fires on concern-context usage. Targeted heuristic,
+    // not a general sentiment check.
+    pattern: /culture and team fit(?!:?\s*(?:positive|strong|good|excellent))/i,
     confidence: 0.90,
     reasoning: '"Culture and team fit" without specific behavioural evidence is a vague justification that can mask demographic bias.',
     suggestedAlt: 'Cite specific observed behaviours: e.g. "During the group exercise, the candidate did not build on others\' ideas."',

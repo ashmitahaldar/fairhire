@@ -3,6 +3,7 @@ dist/
 shared/dist/
 api/dist/
 web/dist/
+evals/runs/
 .prisma/
 .env
 .env.local
@@ -11,3 +12,8 @@ web/dist/
 *.log
 npm-debug.log*
 .DS_Store
+
+# Initial design-tool exports kept for posterity (see folder README).
+# Already-tracked files stay tracked; this rule only stops future drops
+# from polluting `git status`.
+web/design-reference/

@@ -8,13 +8,14 @@
     "shared"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "dev:web": "npm run dev --workspace=web",
     "dev:api": "npm run dev --workspace=api",
     "seed:reset": "npx tsx scripts/seed.ts",
     "check-env": "npx tsx scripts/check-env.ts",
+    "eval": "npx tsx api/src/analysis/eval/run.ts",
     "type-check": "npm run type-check --workspaces --if-present",
     "lint": "eslint .",
     "db:migrate": "prisma migrate dev",

@@ -9,7 +9,8 @@ export const meetingsRouter = Router();
 
 const createBody = z.object({
   title: z.string().min(1),
-  transcript: z.string().min(1),
+  transcript: z.string().trim().min(1).max(500_000),
+  transcriptFilename: z.string().min(1).max(255).optional(),
   date: z.string().datetime(),
   candidateIds: z.array(z.string().uuid()).min(1),
 });
@@ -24,7 +25,28 @@ meetingsRouter.get('/', async (req, res) => {
   const meetings = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findMany({
       where: { managerId: req.manager.id },
-      include: { candidates: { include: candidateWithDemographics } },
+      // Explicit select so the list payload doesn't drag the full transcript
+      // along for every row (it's typically the heaviest field, the Dashboard
+      // never reads it). Full transcript lives on GET /:id.
+      select: {
+        id: true,
+        orgId: true,
+        managerId: true,
+        title: true,
+        transcriptFilename: true,
+        date: true,
+        createdAt: true,
+        updatedAt: true,
+        candidates: { include: candidateWithDemographics },
+        // Flag count and latest run status so the Dashboard list renders
+        // without N+1 followups; full flag rows live on GET /:id.
+        _count: { select: { flags: true } },
+        analysisRuns: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { status: true },
+        },
+      },
       orderBy: { date: 'desc' },
     });
   });
@@ -38,13 +60,14 @@ meetingsRouter.post('/', async (req, res) => {
     return;
   }
 
-  const { title, transcript, date, candidateIds } = parsed.data;
+  const { title, transcript, transcriptFilename, date, candidateIds } = parsed.data;
 
   const { meeting, runId } = await withManagerContext(req.manager.id, async (tx) => {
     const m = await tx.meeting.create({
       data: {
         title,
         transcript,
+        transcriptFilename,
         date: new Date(date),
         managerId: req.manager.id,
         orgId: req.manager.orgId,

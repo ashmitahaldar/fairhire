@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>FairHire · Pattern Mirror · Daniel Whittaker</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg:               "var(--color-bg)",
+            surface:          "var(--color-surface)",
+            "surface-sunk":   "var(--color-surface-sunk)",
+            "surface-active": "var(--color-surface-active)",
+            hairline:         "var(--color-border)",
+            "hairline-strong":"var(--color-border-strong)",
+            ink:              "var(--color-text-primary)",
+            "ink-secondary":  "var(--color-text-secondary)",
+            "ink-tertiary":   "var(--color-text-tertiary)",
+            "ink-inverse":    "var(--color-text-inverse)",
+            accent:           "var(--color-accent)",
+            "accent-soft":    "var(--color-accent-soft)",
+            "flag-high":      "var(--color-flag-high)",
+            "flag-med":       "var(--color-flag-med)",
+            "flag-low":       "var(--color-flag-low)",
+          },
+          fontFamily: {
+            serif: ["Source Serif 4", "Source Serif Pro", "Georgia", "serif"],
+            sans:  ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+            mono:  ["JetBrains Mono", "ui-monospace", "SF Mono", "Menlo", "monospace"],
+          },
+          fontSize: {
+            meta:    ["0.75rem",   { lineHeight: "1rem",     letterSpacing: "0.06em" }],
+            xs:      ["0.8125rem", { lineHeight: "1.125rem" }],
+            sm:      ["0.9375rem", { lineHeight: "1.375rem" }],
+            base:    ["1rem",      { lineHeight: "1.5rem"   }],
+            body:    ["1.125rem",  { lineHeight: "1.6875rem" }],
+            section: ["1.375rem",  { lineHeight: "1.875rem" }],
+            page:    ["2rem",      { lineHeight: "2.5rem"   }],
+            display: ["2.75rem",   { lineHeight: "3rem"     }],
+          },
+          borderRadius: { card: "2px", input: "1px" },
+          letterSpacing: { meta: "0.06em" },
+          transitionTimingFunction: { quiet: "cubic-bezier(0.2, 0, 0, 1)" },
+          transitionDuration: { "120": "120ms", "160": "160ms", "200": "200ms", "240": "240ms" },
+          maxWidth: { prose: "40rem", companion: "70.5rem", mirror: "73.75rem" },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      --color-bg:                oklch(0.970 0.006 85);
+      --color-surface:           oklch(0.995 0.002 85);
+      --color-surface-sunk:      oklch(0.940 0.008 80);
+      --color-surface-active:    oklch(0.945 0.012 70);
+      --color-border:            oklch(0.880 0.005 85);
+      --color-border-strong:     oklch(0.800 0.006 85);
+      --color-text-primary:      oklch(0.220 0.008 70);
+      --color-text-secondary:    oklch(0.450 0.010 70);
+      --color-text-tertiary:     oklch(0.620 0.010 70);
+      --color-text-inverse:      oklch(0.985 0.003 85);
+      --color-accent:            oklch(0.450 0.120 25);
+      --color-accent-soft:       oklch(0.450 0.120 25 / 0.08);
+      --color-flag-high:         oklch(0.450 0.120 25);
+      --color-flag-med:          oklch(0.620 0.080 75);
+      --color-flag-low:          oklch(0.520 0.025 240);
+      --color-ring:              oklch(0.450 0.120 25);
+    }
+
+    html, body {
+      background: var(--color-bg);
+      color: var(--color-text-primary);
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: 0.9375rem;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: "cv11", "ss01";
+    }
+
+    ::selection {
+      background: var(--color-accent-soft);
+      color: var(--color-text-primary);
+    }
+
+    :focus-visible {
+      outline: 1px solid var(--color-ring);
+      outline-offset: 2px;
+    }
+    :focus:not(:focus-visible) { outline: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0ms !important;
+        animation-duration: 0ms !important;
+      }
+    }
+
+    /* Explicit font-family utilities — Tailwind Play CDN sometimes emits
+       these as empty rules with theme.extend.fontFamily. */
+    .font-serif { font-family: "Source Serif 4", "Source Serif Pro", Georgia, serif !important; }
+    .font-sans  { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif !important; }
+    .font-mono  { font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace !important; }
+
+    .fh-hairline { background: var(--color-border); height: 1px; width: 100%; }
+    .fh-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 2px;
+    }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root" data-screen-label="01 Mirror"></div>
+
+  <script src="mirror-data.js"></script>
+
+  <!-- Reuse the InitialsAvatar primitive from the Companion -->
+  <script type="text/babel" src="components.jsx"></script>
+
+  <script type="text/babel" src="mirror-charts.jsx"></script>
+  <script type="text/babel" src="mirror-components.jsx"></script>
+  <script type="text/babel" src="mirror-app.jsx"></script>
+</body>
+</html>

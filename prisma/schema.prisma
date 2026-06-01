@@ -171,14 +171,15 @@ model CandidateDemographics {
 }
 
 model Meeting {
-  id         String   @id @default(uuid())
-  orgId      String   @map("org_id")
-  managerId  String   @map("manager_id")
-  title      String
-  transcript String
-  date       DateTime
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  orgId              String   @map("org_id")
+  managerId          String   @map("manager_id")
+  title              String
+  transcript         String
+  transcriptFilename String?  @map("transcript_filename")
+  date               DateTime
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   org          Organisation       @relation(fields: [orgId], references: [id])
   manager      Manager            @relation(fields: [managerId], references: [id])
