@@ -16,10 +16,11 @@ export function createApp() {
     origin: process.env.WEB_URL || 'http://localhost:5173',
     credentials: true,
   }));
-  // Sized above the transcript's Zod cap (500_000 chars) so an over-long
+  // Sized above the transcript's Zod cap (500_000 chars) — and crucially above
+  // its worst-case UTF-8 byte cost (4 bytes/char × 500k = 2MB) — so an over-long
   // transcript is rejected cleanly by validation (400) rather than by the body
-  // parser (which would 500 via the error handler).
-  app.use(express.json({ limit: '1mb' }));
+  // parser (which would 413, or 500 if other middleware fields surface first).
+  app.use(express.json({ limit: '4mb' }));
 
   app.use(clerkAuth);
 

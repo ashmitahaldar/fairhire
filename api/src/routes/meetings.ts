@@ -25,7 +25,18 @@ meetingsRouter.get('/', async (req, res) => {
   const meetings = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findMany({
       where: { managerId: req.manager.id },
-      include: {
+      // Explicit select so the list payload doesn't drag the full transcript
+      // along for every row (it's typically the heaviest field, the Dashboard
+      // never reads it). Full transcript lives on GET /:id.
+      select: {
+        id: true,
+        orgId: true,
+        managerId: true,
+        title: true,
+        transcriptFilename: true,
+        date: true,
+        createdAt: true,
+        updatedAt: true,
         candidates: { include: candidateWithDemographics },
         // Flag count and latest run status so the Dashboard list renders
         // without N+1 followups; full flag rows live on GET /:id.
