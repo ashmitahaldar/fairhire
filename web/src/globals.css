@@ -36,6 +36,10 @@
     --color-flag-med:          oklch(0.620 0.080 75);   /* muted ochre */
     --color-flag-low:          oklch(0.520 0.025 240);  /* quiet slate */
 
+    /* ── Chart fills (Pattern Mirror composition bars) ──────── */
+    --color-chip-represented:  oklch(0.320 0.008 70);   /* dark warm grey */
+    --color-chip-majority:     oklch(0.720 0.006 70);   /* light warm grey */
+
     /* ── Focus ────────────────────────────────────────────── */
     --color-ring:              oklch(0.450 0.120 25);
 

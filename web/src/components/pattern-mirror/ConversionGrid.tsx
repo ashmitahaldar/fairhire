@@ -12,14 +12,17 @@ interface ConversionRow {
 }
 
 // Pure: pipeline → per-transition conversion rates for represented vs majority.
-// Exported so the math is testable in isolation.
+// Exported so the math is testable in isolation. If a stage starts with zero
+// candidates in a group, the conversion rate is treated as 0 — there's no
+// meaningful percentage of "advanced" when nobody entered, and 0 keeps the bar
+// widths and `.toFixed(0)` rendering safe (NaN/Infinity would break both).
 export function computeConversionRows(pipeline: PipelineRow[]): ConversionRow[] {
   const rows: ConversionRow[] = [];
   for (let i = 1; i < pipeline.length; i++) {
     const prev = pipeline[i - 1];
     const curr = pipeline[i];
-    const repPct = (curr.represented / prev.represented) * 100;
-    const majPct = (curr.majority / prev.majority) * 100;
+    const repPct = prev.represented === 0 ? 0 : (curr.represented / prev.represented) * 100;
+    const majPct = prev.majority === 0 ? 0 : (curr.majority / prev.majority) * 100;
     rows.push({
       label: `${prev.stage} → ${curr.stage}`,
       repPct,

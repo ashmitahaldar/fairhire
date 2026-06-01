@@ -23,7 +23,7 @@ export function StackedBarChart({ data, totalLabel = 'Total' }: StackedBarChartP
             <div className="relative h-8 flex">
               <div
                 className="h-full flex items-center pl-2.5"
-                style={{ width: `${repPct}%`, background: 'oklch(0.32 0.008 70)' }}
+                style={{ width: `${repPct}%`, background: 'var(--color-chip-represented)' }}
               >
                 <span className="font-mono text-xs text-ink-inverse tabular-nums">
                   {repPct.toFixed(0)}%
@@ -31,7 +31,7 @@ export function StackedBarChart({ data, totalLabel = 'Total' }: StackedBarChartP
               </div>
               <div
                 className="h-full flex items-center pl-2.5"
-                style={{ width: `${majPct}%`, background: 'oklch(0.72 0.006 70)' }}
+                style={{ width: `${majPct}%`, background: 'var(--color-chip-majority)' }}
               >
                 <span className="font-mono text-xs text-ink tabular-nums">
                   {majPct.toFixed(0)}%
@@ -50,14 +50,14 @@ export function StackedBarChart({ data, totalLabel = 'Total' }: StackedBarChartP
           <span className="flex items-center gap-2">
             <span
               className="inline-block w-3 h-3"
-              style={{ background: 'oklch(0.32 0.008 70)' }}
+              style={{ background: 'var(--color-chip-represented)' }}
             />
             Represented background
           </span>
           <span className="flex items-center gap-2">
             <span
               className="inline-block w-3 h-3"
-              style={{ background: 'oklch(0.72 0.006 70)' }}
+              style={{ background: 'var(--color-chip-majority)' }}
             />
             Majority
           </span>

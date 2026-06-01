@@ -30,4 +30,16 @@ describe('computeConversionRows', () => {
       { stage: 'Applied', represented: 100, majority: 100, total: 200 },
     ])).toEqual([]);
   });
+
+  it('treats a zero-prev-stage count as a zero conversion rate (no NaN/Infinity)', () => {
+    const pipeline: PipelineRow[] = [
+      { stage: 'Applied',     represented:   0, majority: 100, total: 100 },
+      { stage: 'Interviewed', represented:   0, majority:  60, total:  60 },
+    ];
+    const [row] = computeConversionRows(pipeline);
+    expect(row.repPct).toBe(0);
+    expect(Number.isFinite(row.repPct)).toBe(true);
+    expect(row.majPct).toBeCloseTo(60);
+    expect(row.gap).toBeCloseTo(60);
+  });
 });
