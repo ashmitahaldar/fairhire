@@ -16,6 +16,7 @@ jest.mock('@clerk/express', () => ({
 jest.mock('../lib/prisma', () => ({
   prisma: {
     meeting: { findMany: jest.fn() },
+    flag: { groupBy: jest.fn() },
   },
   systemPrisma: {
     manager: { findUnique: jest.fn() },
@@ -28,6 +29,7 @@ import { prisma, systemPrisma, withManagerContext } from '../lib/prisma';
 
 const mockSystemManagerFindUnique = systemPrisma.manager.findUnique as jest.Mock;
 const mockMeetingFindMany = prisma.meeting.findMany as jest.Mock;
+const mockFlagGroupBy = prisma.flag.groupBy as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 
 const app = createApp();
@@ -56,6 +58,7 @@ beforeEach(() => {
     return null;
   });
   mockMeetingFindMany.mockResolvedValue([]);
+  mockFlagGroupBy.mockResolvedValue([]);
 });
 
 describe('GET /mirror', () => {

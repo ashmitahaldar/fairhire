@@ -17,13 +17,23 @@ type MeetingFixture = {
   decisions: Array<{ id: string; outcome: 'hired' | 'rejected' | 'in_progress'; candidateId: string }>;
 };
 
-function makeTx(meetings: MeetingFixture[]): {
+type PreviousFlagCount = { flagType: string; _count: { _all: number } };
+
+function makeTx(
+  meetings: MeetingFixture[],
+  previousFlagCounts: PreviousFlagCount[] = [],
+): {
   tx: TransactionClient;
   findMany: jest.Mock;
+  groupBy: jest.Mock;
 } {
   const findMany = jest.fn().mockResolvedValue(meetings);
-  const tx = { meeting: { findMany } } as unknown as TransactionClient;
-  return { tx, findMany };
+  const groupBy = jest.fn().mockResolvedValue(previousFlagCounts);
+  const tx = {
+    meeting: { findMany },
+    flag: { groupBy },
+  } as unknown as TransactionClient;
+  return { tx, findMany, groupBy };
 }
 
 const baseInput = {
@@ -285,5 +295,161 @@ describe('aggregateMirror — query filter', () => {
         }),
       }),
     );
+  });
+
+  it('passes the previous-window date filter to flag.groupBy', async () => {
+    const now = new Date('2026-06-01T12:00:00Z');
+    const { tx, groupBy } = makeTx([]);
+    await aggregateMirror(tx, { ...baseInput, now });
+
+    const ninetyD = 90 * 24 * 60 * 60 * 1000;
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['flagType'],
+        where: expect.objectContaining({
+          meeting: expect.objectContaining({
+            managerId: 'mgr-1',
+            date: {
+              gte: new Date(now.getTime() - 2 * ninetyD),
+              lte: new Date(now.getTime() - ninetyD),
+            },
+          }),
+        }),
+      }),
+    );
+  });
+});
+
+describe('aggregateMirror — languageFlags (Phase B)', () => {
+  const meetingDate = new Date('2026-05-25T00:00:00Z');
+
+  function withFlags(currentFlags: Array<{ flagType: string }>): MeetingFixture[] {
+    return [
+      {
+        id: 'm1',
+        date: meetingDate,
+        candidates: [
+          { candidateId: 'c1', candidate: { name: 'A B', roleAppliedFor: 'X' } },
+        ],
+        flags: currentFlags.map((f) => ({ flagType: f.flagType, dismissed: false })),
+        decisions: [],
+      },
+    ];
+  }
+
+  it('builds one row per FlagType that has at least one flag in the current window', async () => {
+    const { tx } = makeTx(
+      withFlags([
+        { flagType: 'age_bias' },
+        { flagType: 'age_bias' },
+        { flagType: 'hedging_language' },
+      ]),
+      [
+        { flagType: 'age_bias', _count: { _all: 6 } },
+        { flagType: 'hedging_language', _count: { _all: 3 } },
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+
+    expect(data.languageFlags).toHaveLength(2);
+    expect(data.languageFlags.map((r) => r.id)).toEqual(['age_bias', 'hedging_language']);
+  });
+
+  it('sorts rows by count desc and marks the top row highlight: true', async () => {
+    const { tx } = makeTx(
+      withFlags([
+        { flagType: 'age_bias' },
+        { flagType: 'hedging_language' },
+        { flagType: 'hedging_language' },
+        { flagType: 'hedging_language' },
+        { flagType: 'criteria_drift' },
+        { flagType: 'criteria_drift' },
+      ]),
+      // Prior total = 10 → above sparse threshold (5), so deltas are real
+      [
+        { flagType: 'age_bias', _count: { _all: 5 } },
+        { flagType: 'hedging_language', _count: { _all: 5 } },
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+
+    expect(data.languageFlags.map((r) => r.id)).toEqual([
+      'hedging_language',
+      'criteria_drift',
+      'age_bias',
+    ]);
+    expect(data.languageFlags[0]?.highlight).toBe(true);
+    expect(data.languageFlags[1]?.highlight).toBeUndefined();
+    expect(data.languageFlags[2]?.highlight).toBeUndefined();
+  });
+
+  it('computes delta as current − previous when prior window has enough flags', async () => {
+    const { tx } = makeTx(
+      withFlags([
+        { flagType: 'age_bias' },
+        { flagType: 'age_bias' },
+        { flagType: 'age_bias' },
+      ]),
+      // Prior total = 6 → above sparse threshold
+      [
+        { flagType: 'age_bias', _count: { _all: 6 } },
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.languageFlags[0]).toMatchObject({
+      id: 'age_bias',
+      count: 3,
+      delta: -3, // 3 − 6
+    });
+  });
+
+  it('sets delta: null on every row when the prior window has fewer than the sparse threshold of flags', async () => {
+    const { tx } = makeTx(
+      withFlags([
+        { flagType: 'age_bias' },
+        { flagType: 'age_bias' },
+        { flagType: 'hedging_language' },
+      ]),
+      // Prior total = 4 → below threshold (5), so delta is null for all
+      [
+        { flagType: 'age_bias', _count: { _all: 4 } },
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.languageFlags.every((r) => r.delta === null)).toBe(true);
+  });
+
+  it('returns an empty languageFlags array when no flags exist in either window', async () => {
+    const { tx } = makeTx([], []);
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.languageFlags).toEqual([]);
+  });
+
+  it('uses FLAG_TYPE_LABELS for the row label', async () => {
+    const { tx } = makeTx(
+      withFlags([{ flagType: 'age_bias' }]),
+      [],
+    );
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.languageFlags[0]?.label).toBe('Energy / pace language');
+  });
+
+  it('treats a FlagType that fired in current but not in previous as delta = current (when above threshold)', async () => {
+    const { tx } = makeTx(
+      withFlags([
+        { flagType: 'criteria_drift' },
+        { flagType: 'criteria_drift' },
+      ]),
+      // Prior total = 6 → above threshold; criteria_drift didn't fire previously
+      [{ flagType: 'age_bias', _count: { _all: 6 } }],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    const row = data.languageFlags.find((r) => r.id === 'criteria_drift');
+    expect(row?.delta).toBe(2); // 2 − 0
   });
 });

@@ -45,12 +45,17 @@ export function LollipopChart({ data, highlightId, labelWidth = 220 }: LollipopC
             </div>
             <div className="font-mono text-sm tabular-nums text-right text-ink flex items-baseline justify-end gap-1.5">
               <span>{row.count}</span>
-              {row.delta !== 0 && (
+              {row.delta === null ? (
+                // Sparse prior window — delta isn't meaningful. Neutral
+                // pip stands in for the arrow so the column stays aligned
+                // and the row still reads as "delta-aware".
+                <span className="text-xs text-ink-tertiary" title="Not enough prior data">·</span>
+              ) : row.delta !== 0 ? (
                 <span className="text-xs text-ink-tertiary">
                   {row.delta > 0 ? '↑' : '↓'}
                   {Math.abs(row.delta)}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         );

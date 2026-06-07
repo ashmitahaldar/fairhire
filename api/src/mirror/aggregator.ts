@@ -1,6 +1,9 @@
 import {
+  DELTA_PRIOR_WINDOW_MIN_FLAGS,
+  FLAG_TYPES,
   FLAG_TYPE_LABELS,
   type FlagType,
+  type LanguageFlagRow,
   type MirrorData,
   type MirrorDecision,
   type MirrorDecisionOutcome,
@@ -120,9 +123,24 @@ export async function aggregateMirror(
     orderBy: { date: 'desc' },
   });
 
+  // Phase B needs the previous-period flag distribution to compute deltas.
+  // A focused groupBy is cheaper than re-fetching full meeting rows; the
+  // relation filter scopes it to the same manager and the previous window.
+  const previousFlagCounts = await tx.flag.groupBy({
+    by: ['flagType'],
+    where: {
+      meeting: {
+        managerId,
+        date: { gte: windows.previous.start, lte: windows.previous.end },
+      },
+    },
+    _count: { _all: true },
+  });
+
   const summary = buildSummary(meetings);
   const decisions = buildDecisions(meetings, now);
   const recentDecisions = [...decisions].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8);
+  const languageFlags = buildLanguageFlags(meetings, previousFlagCounts);
 
   return {
     manager: {
@@ -136,10 +154,10 @@ export async function aggregateMirror(
     summary,
     decisions,
     recentDecisions,
-    // Phase B/C/D placeholders. The frontend gates these per-section per
+    languageFlags,
+    // Phase C/D placeholders. The frontend gates these per-section per
     // Section 1; an empty array is a valid "no data yet" signal.
     pipeline: [] as PipelineRow[],
-    languageFlags: [],
     nudges: [],
   };
 }
@@ -201,6 +219,54 @@ function buildSummary(meetings: MeetingRow[]): MirrorSummary {
     dismissedFlags,
     totalFlags,
   };
+}
+
+// ── Language flags (Phase B) ──────────────────────────────────────────────
+// Up to 5 rows, one per FlagType that fired at least once in the current
+// window. Sorted by count desc. Delta is current − previous when the
+// prior window has at least DELTA_PRIOR_WINDOW_MIN_FLAGS total flags;
+// otherwise null (UI renders a neutral pip instead of an arrow — keeps
+// the section honest when there's not enough history to compare against).
+// Top row is marked highlight: true so the existing LollipopChart can
+// emphasise it (chart honours row.highlight independent of its own
+// hardcoded highlightId hint).
+
+function buildLanguageFlags(
+  meetings: MeetingRow[],
+  previous: Array<{ flagType: FlagType; _count: { _all: number } }>,
+): LanguageFlagRow[] {
+  // Current-period counts from the meetings we already pulled.
+  const currentCounts = new Map<FlagType, number>();
+  for (const m of meetings) {
+    for (const f of m.flags) {
+      currentCounts.set(f.flagType, (currentCounts.get(f.flagType) ?? 0) + 1);
+    }
+  }
+
+  const prevCounts = new Map<FlagType, number>(
+    previous.map((p) => [p.flagType, p._count._all]),
+  );
+  const prevTotal = previous.reduce((s, p) => s + p._count._all, 0);
+  const sparse = prevTotal < DELTA_PRIOR_WINDOW_MIN_FLAGS;
+
+  const rows: LanguageFlagRow[] = [];
+  for (const t of FLAG_TYPES) {
+    const count = currentCounts.get(t) ?? 0;
+    if (count === 0) continue; // zero-count types don't earn a row
+    const prev = prevCounts.get(t) ?? 0;
+    rows.push({
+      id: t,
+      label: FLAG_TYPE_LABELS[t],
+      count,
+      delta: sparse ? null : count - prev,
+    });
+  }
+
+  rows.sort((a, b) => b.count - a.count);
+  if (rows.length > 0) {
+    rows[0]!.highlight = true;
+  }
+  return rows;
 }
 
 // ── Decisions list ────────────────────────────────────────────────────────

@@ -28,7 +28,10 @@ export interface LanguageFlagRow {
   id: string;
   label: string;
   count: number;
-  delta: number;           // signed delta vs previous period
+  // null when the prior comparison window has too few flags for a delta
+  // to be meaningful (see DELTA_PRIOR_WINDOW_MIN_FLAGS in shared). UI
+  // renders a neutral pip instead of an arrow for null.
+  delta: number | null;
   highlight?: boolean;
 }
 
