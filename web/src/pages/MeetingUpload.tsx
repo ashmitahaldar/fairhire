@@ -22,6 +22,7 @@ export default function MeetingUpload() {
   const [when, setWhen] = useState(() => toLocalDatetimeValue(new Date()));
   const [error, setError] = useState<string | null>(null);
   const [addingCandidate, setAddingCandidate] = useState(false);
+  const [candidateFilter, setCandidateFilter] = useState('');
 
   const toggleCandidate = (id: string) => {
     setSelected((prev) => {
@@ -146,20 +147,13 @@ export default function MeetingUpload() {
             </p>
           )}
           {candidatesQuery.data && candidatesQuery.data.length > 0 && (
-            <div className="space-y-1.5">
-              {candidatesQuery.data.map((c) => (
-                <label key={c.id} className="flex items-center gap-3 text-sm text-ink cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(c.id)}
-                    onChange={() => toggleCandidate(c.id)}
-                    className="accent-accent"
-                  />
-                  <span>{c.name}</span>
-                  <span className="text-ink-tertiary">· {c.roleAppliedFor}</span>
-                </label>
-              ))}
-            </div>
+            <CandidatePicker
+              candidates={candidatesQuery.data}
+              selected={selected}
+              onToggle={toggleCandidate}
+              filter={candidateFilter}
+              onFilter={setCandidateFilter}
+            />
           )}
         </div>
 
@@ -196,6 +190,100 @@ export default function MeetingUpload() {
           {createMeeting.isPending ? 'Analysing…' : 'Upload & analyse'}
         </button>
       </form>
+    </div>
+  );
+}
+
+// ── Scrollable, searchable, multi-select candidate list ──────────────────
+// Replaces the prior label+checkbox list. Bounded height with overflow so
+// the page stays uncluttered as the org grows. Selected rows pick up
+// bg-surface-active and a trailing accent dot; the row itself is the click
+// target so the whole strip is hit-test-able. Listbox semantics carry the
+// multi-select state to assistive tech without a visible checkbox.
+
+interface CandidatePickerProps {
+  candidates: CandidateOption[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  filter: string;
+  onFilter: (next: string) => void;
+}
+
+function CandidatePicker({
+  candidates,
+  selected,
+  onToggle,
+  filter,
+  onFilter,
+}: CandidatePickerProps) {
+  const needle = filter.trim().toLowerCase();
+  const visible = needle
+    ? candidates.filter(
+        (c) =>
+          c.name.toLowerCase().includes(needle) ||
+          c.roleAppliedFor.toLowerCase().includes(needle),
+      )
+    : candidates;
+
+  return (
+    <div className="space-y-2">
+      <input
+        type="search"
+        value={filter}
+        onChange={(e) => onFilter(e.target.value)}
+        placeholder="Search candidates…"
+        aria-label="Search candidates"
+        className="w-full bg-surface border border-hairline rounded-input px-3 py-1.5 text-sm text-ink placeholder:text-ink-tertiary outline-none focus:border-ink-secondary transition-colors duration-120"
+      />
+      <div className="border border-hairline rounded-input max-h-72 overflow-y-auto bg-surface">
+        {visible.length === 0 ? (
+          <p className="px-3 py-3 text-sm text-ink-tertiary italic">
+            No candidates match “{filter.trim()}”.
+          </p>
+        ) : (
+          <ul
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label="Candidates"
+            className="divide-y divide-hairline"
+          >
+            {visible.map((c) => {
+              const isSel = selected.has(c.id);
+              return (
+                <li
+                  key={c.id}
+                  role="option"
+                  aria-selected={isSel}
+                  tabIndex={0}
+                  onClick={() => onToggle(c.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onToggle(c.id);
+                    }
+                  }}
+                  className={`flex items-center justify-between gap-3 px-3 py-2 text-sm cursor-pointer transition-colors duration-120 focus:outline-none ${
+                    isSel
+                      ? 'bg-surface-active text-ink'
+                      : 'text-ink hover:bg-surface-sunk focus:bg-surface-sunk'
+                  }`}
+                >
+                  <span>
+                    <span>{c.name}</span>
+                    <span className="text-ink-tertiary"> · {c.roleAppliedFor}</span>
+                  </span>
+                  {isSel && (
+                    <span
+                      aria-hidden="true"
+                      className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
