@@ -59,6 +59,11 @@ export function useCreateCandidateFull() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['candidates'] });
+      // Adding a candidate doesn't directly change any Mirror aggregate
+      // (no meetings/flags/decisions yet), but candidate metadata feeds
+      // pipeline composition in Phase C — invalidate so the next mirror
+      // view picks them up.
+      void qc.invalidateQueries({ queryKey: ['mirror'] });
     },
   });
 }
@@ -82,6 +87,8 @@ export function useUpdateCandidate() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['candidates'] });
+      // Edits to demographics/role change pipeline composition (Phase C).
+      void qc.invalidateQueries({ queryKey: ['mirror'] });
     },
   });
 }
@@ -100,6 +107,9 @@ export function useSoftDeleteCandidate() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['candidates'] });
+      // A soft-deleted candidate disappears from pipeline counts even
+      // though their meetings/flags remain in the manager's history.
+      void qc.invalidateQueries({ queryKey: ['mirror'] });
     },
   });
 }

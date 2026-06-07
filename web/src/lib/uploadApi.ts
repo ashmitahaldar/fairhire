@@ -38,6 +38,10 @@ export function useCreateCandidate() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['candidates'] });
+      // Pipeline composition (Phase C) reads candidate metadata, so a
+      // new candidate could shift those counts even before they have a
+      // meeting attached.
+      void qc.invalidateQueries({ queryKey: ['mirror'] });
     },
   });
 }
@@ -45,6 +49,7 @@ export function useCreateCandidate() {
 // Creates a meeting (which schedules analysis server-side); returns its id.
 export function useCreateMeeting() {
   const { getToken } = useAuth();
+  const qc = useQueryClient();
   return useMutation<{ id: string }, Error, CreateMeetingInput>({
     mutationFn: async (input) => {
       const token = await getToken();
@@ -53,6 +58,14 @@ export function useCreateMeeting() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+    },
+    onSuccess: () => {
+      // New meeting → new dashboard row AND Mirror needs to count it
+      // toward interviewsCount immediately. Analysis runs in the
+      // background; flag aggregates catch up on the next refetch after
+      // analysis completes (no event hook yet — POC limitation).
+      void qc.invalidateQueries({ queryKey: ['meetings'] });
+      void qc.invalidateQueries({ queryKey: ['mirror'] });
     },
   });
 }

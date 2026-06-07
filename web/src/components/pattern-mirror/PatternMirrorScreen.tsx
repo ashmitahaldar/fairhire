@@ -15,15 +15,19 @@ type Tab = (typeof TABS)[number];
 
 interface PatternMirrorScreenProps {
   data: MirrorData;
+  // When provided the period selector becomes controlled — the wrapper
+  // converts label → MirrorPeriod key, refetches, and the new data.period
+  // re-flows through this prop. When omitted (mock-data preview), clicks
+  // are no-ops since the mock has only one period anyway.
+  onPeriodChange?: (label: string) => void;
 }
 
-export function PatternMirrorScreen({ data }: PatternMirrorScreenProps) {
+export function PatternMirrorScreen({ data, onPeriodChange }: PatternMirrorScreenProps) {
   const [tab, setTab] = useState<Tab>('Overview');
-  const [period, setPeriod] = useState<string>(data.period);
 
   return (
     <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${tab}`}>
-      <MirrorHeader data={data} period={period} onChangePeriod={setPeriod} />
+      <MirrorHeader data={data} period={data.period} onChangePeriod={onPeriodChange ?? (() => {})} />
       <TabBar active={tab} onChange={setTab} />
       <div className="pt-10 pb-32">
         {tab === 'Overview' && (
