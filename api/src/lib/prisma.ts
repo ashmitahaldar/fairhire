@@ -45,7 +45,7 @@ export const systemPrisma = new PrismaClient({
 
 // ─── Context helper ───────────────────────────────────────────────────────
 
-type TransactionClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+export type TransactionClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
 
 /**
  * Runs fn inside a transaction with app.current_manager_id set.

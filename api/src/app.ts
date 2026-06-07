@@ -8,6 +8,7 @@ import { decisionsRouter } from './routes/decisions';
 import { flagsRouter } from './routes/flags';
 import { hrRouter } from './routes/hr';
 import { internalRouter } from './routes/internal';
+import { mirrorRouter } from './routes/mirror';
 
 export function createApp() {
   const app = express();
@@ -37,6 +38,7 @@ export function createApp() {
   app.use('/candidates', candidatesRouter);
   app.use('/decisions', decisionsRouter);
   app.use('/flags', flagsRouter);
+  app.use('/mirror', mirrorRouter);
   app.use('/hr', hrRouter);
 
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
