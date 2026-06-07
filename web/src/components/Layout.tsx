@@ -20,6 +20,7 @@ export function Layout() {
         <span style={{ fontWeight: 700, marginRight: 'auto' }}>FairHire</span>
         <NavLink to="/">Dashboard</NavLink>
         <NavLink to="/meetings/upload">Upload Transcript</NavLink>
+        <NavLink to="/candidates">Candidates</NavLink>
         <NavLink to="/pattern-mirror">Pattern Mirror</NavLink>
         {managerRole === 'hr_admin' && <NavLink to="/hr">HR Overview</NavLink>}
         <UserButton afterSignOutUrl="/" />

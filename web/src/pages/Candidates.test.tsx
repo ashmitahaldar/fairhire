@@ -1,0 +1,136 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ getToken: async () => 'test-token' }),
+}));
+
+import Candidates from './Candidates';
+import type { CandidateListItem } from '../lib/candidatesApi';
+
+function row(
+  overrides: Partial<CandidateListItem> & Pick<CandidateListItem, 'id' | 'name'>,
+): CandidateListItem {
+  return {
+    roleAppliedFor: 'Analyst',
+    createdAt: '2026-01-01T00:00:00Z',
+    demographics: null,
+    meetingCount: 0,
+    lastDecisionOutcome: null,
+    canModify: false,
+    ...overrides,
+  };
+}
+
+function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <Candidates />
+    </QueryClientProvider>
+  );
+}
+
+let originalFetch: typeof globalThis.fetch;
+
+function mockCandidates(list: CandidateListItem[]) {
+  globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/candidates')) {
+      return { ok: true, status: 200, json: async () => list } as unknown as Response;
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  }) as unknown as typeof fetch;
+}
+
+beforeEach(() => {
+  originalFetch = globalThis.fetch;
+});
+
+afterEach(() => {
+  cleanup();
+  globalThis.fetch = originalFetch;
+  vi.restoreAllMocks();
+});
+
+describe('Candidates page', () => {
+  it('renders the list with the enriched fields', async () => {
+    mockCandidates([
+      row({
+        id: 'c1',
+        name: 'Ahmad Faris',
+        roleAppliedFor: 'Senior Analyst',
+        meetingCount: 3,
+        lastDecisionOutcome: 'hired',
+        demographics: {
+          race: 'malay',
+          gender: 'male',
+          ageBand: null,
+          nationalityStatus: null,
+          firstLanguage: null,
+          yearsInSingapore: null,
+          university: null,
+          major: null,
+          previousEmployer: null,
+          yearsExperience: null,
+          currentBase: null,
+        },
+        canModify: true,
+      }),
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Ahmad Faris')).toBeTruthy();
+    expect(screen.getByText('Senior Analyst')).toBeTruthy();
+    // demographics chip combines race + gender abbreviations
+    expect(screen.getByText('Malay · M')).toBeTruthy();
+    expect(screen.getByText('Hired')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+  });
+
+  it('disables edit + delete buttons when canModify is false', async () => {
+    mockCandidates([
+      row({ id: 'c1', name: 'Hannah Lim', canModify: false }),
+    ]);
+
+    renderPage();
+
+    await screen.findByText('Hannah Lim');
+    const edit = screen.getByRole('button', { name: /^Edit$/ });
+    const del = screen.getByRole('button', { name: /^Delete$/ });
+    expect((edit as HTMLButtonElement).disabled).toBe(true);
+    expect((del as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('filters the list by search input', async () => {
+    mockCandidates([
+      row({ id: 'c1', name: 'Ahmad Faris', roleAppliedFor: 'Analyst' }),
+      row({ id: 'c2', name: 'Siti Nurhaliza', roleAppliedFor: 'Director' }),
+    ]);
+
+    renderPage();
+
+    await screen.findByText('Ahmad Faris');
+    fireEvent.change(screen.getByLabelText('Search candidates'), {
+      target: { value: 'siti' },
+    });
+
+    expect(screen.queryByText('Ahmad Faris')).toBeNull();
+    expect(screen.getByText('Siti Nurhaliza')).toBeTruthy();
+  });
+
+  it('opens the modal in create mode when "Add candidate" is clicked', async () => {
+    mockCandidates([]);
+
+    renderPage();
+
+    // empty-state's Add button is the only one until we click it
+    await screen.findByText(/No candidates on file yet/);
+    fireEvent.click(screen.getByRole('button', { name: /Add candidate →/ }));
+
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('New candidate')).toBeTruthy();
+  });
+});

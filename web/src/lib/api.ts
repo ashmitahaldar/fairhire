@@ -15,5 +15,9 @@ export async function apiFetch<T>(
     },
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
+  // 204 No Content has no body — calling .json() on it would throw.
+  // Callers that expect void from a 204 endpoint just get undefined cast
+  // to T, which TypeScript can verify via the generic.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
