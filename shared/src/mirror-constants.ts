@@ -41,5 +41,18 @@ export const NUDGE_DELTA_SURGE_RATIO = 0.5; // +50% over prior
 export const NUDGE_DISMISSAL_RATE_THRESHOLD = 0.6;
 export const NUDGE_DISMISSAL_MIN_TOTAL = 8;
 
+// "Decisions skewing one outcome": one final outcome (Hired or Declined)
+// must capture at least this fraction of final decisions, with a floor
+// to avoid firing on 2-of-2 noise. Pending decisions are excluded from
+// both the numerator and denominator since they aren't final yet.
+export const NUDGE_DECISION_SKEW_THRESHOLD = 0.7;
+export const NUDGE_DECISION_SKEW_MIN_TOTAL = 5;
+
+// "High average flags per interview": avgFlagsPerInterview must exceed
+// this with an interviews floor so a single noisy interview doesn't
+// drive the nudge.
+export const NUDGE_AVG_FLAGS_THRESHOLD = 3;
+export const NUDGE_AVG_FLAGS_MIN_INTERVIEWS = 3;
+
 // Max nudges surfaced per /mirror response. Section 4 of the plan.
 export const NUDGE_MAX_PER_RESPONSE = 3;

@@ -15,6 +15,7 @@ import {
   type RaceSegmentKey,
 } from '@fairhire/shared';
 import type { TransactionClient } from '../lib/prisma';
+import { buildNudges } from './nudges';
 
 // Pure aggregation service for the Pattern Mirror. Takes the authenticated
 // manager and a period, returns the full MirrorData shape. Phase A
@@ -209,6 +210,9 @@ export async function aggregateMirror(
   const recentDecisions = [...decisions].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8);
   const languageFlags = buildLanguageFlags(meetings, previousFlagCounts);
   const pipeline = buildPipeline(pipelineCandidates, windows.current);
+  // Phase D nudges fire on Phase A+B signals only this week. Pipeline-
+  // and demographic-driven nudges are deferred to Week 5 per the plan.
+  const nudges = buildNudges({ summary, languageFlags, decisions });
 
   return {
     manager: {
@@ -224,8 +228,7 @@ export async function aggregateMirror(
     recentDecisions,
     languageFlags,
     pipeline,
-    // Phase D placeholder — empty array is a valid "no data yet" signal.
-    nudges: [],
+    nudges,
   };
 }
 
