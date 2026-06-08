@@ -25,17 +25,31 @@ interface PatternMirrorScreenProps {
 export function PatternMirrorScreen({ data, onPeriodChange }: PatternMirrorScreenProps) {
   const [tab, setTab] = useState<Tab>('Overview');
 
+  // Nudge "See in {tab} ›" link handler. nudge.linkTo carries a tab name
+  // (e.g. 'Language', 'Decisions') — switch to it when valid, no-op when
+  // the value isn't a known tab so a typo doesn't crash the click.
+  const seeInstances = (linkTo: string | undefined) => {
+    if (!linkTo) return;
+    if ((TABS as readonly string[]).includes(linkTo)) {
+      setTab(linkTo as Tab);
+    }
+  };
+
   return (
     <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${tab}`}>
       <MirrorHeader data={data} period={data.period} onChangePeriod={onPeriodChange ?? (() => {})} />
       <TabBar active={tab} onChange={setTab} />
       <div className="pt-10 pb-32">
         {tab === 'Overview' && (
-          <OverviewTab data={data} onOpenAllDecisions={() => setTab('Decisions')} />
+          <OverviewTab
+            data={data}
+            onOpenAllDecisions={() => setTab('Decisions')}
+            onSeeInstances={seeInstances}
+          />
         )}
         {tab === 'Decisions' && <DecisionsTab data={data} />}
-        {tab === 'Language' && <LanguageTab data={data} />}
-        {tab === 'Demographics' && <DemographicsTab data={data} />}
+        {tab === 'Language' && <LanguageTab data={data} onSeeInstances={seeInstances} />}
+        {tab === 'Demographics' && <DemographicsTab data={data} onSeeInstances={seeInstances} />}
       </div>
     </div>
   );
@@ -125,9 +139,11 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 function OverviewTab({
   data,
   onOpenAllDecisions,
+  onSeeInstances,
 }: {
   data: MirrorData;
   onOpenAllDecisions: () => void;
+  onSeeInstances: (linkTo: string | undefined) => void;
 }) {
   const visibleNudges = data.nudges.slice(0, 3);
   return (
@@ -164,7 +180,11 @@ function OverviewTab({
       >
         <div className="grid grid-cols-3 gap-4">
           {visibleNudges.map((n) => (
-            <NudgeCard key={n.id} nudge={n} />
+            <NudgeCard
+              key={n.id}
+              nudge={n}
+              onSeeInstances={(nudge) => onSeeInstances(nudge.linkTo)}
+            />
           ))}
         </div>
       </Section>
@@ -209,7 +229,13 @@ function DecisionsTab({ data }: { data: MirrorData }) {
   );
 }
 
-function LanguageTab({ data }: { data: MirrorData }) {
+function LanguageTab({
+  data,
+  onSeeInstances,
+}: {
+  data: MirrorData;
+  onSeeInstances: (linkTo: string | undefined) => void;
+}) {
   const langNudges = data.nudges.filter((n) => /Language|Self-pattern/i.test(n.tag));
   return (
     <>
@@ -228,7 +254,11 @@ function LanguageTab({ data }: { data: MirrorData }) {
       >
         <div className="grid grid-cols-2 gap-4">
           {langNudges.map((n) => (
-            <NudgeCard key={n.id} nudge={n} />
+            <NudgeCard
+              key={n.id}
+              nudge={n}
+              onSeeInstances={(nudge) => onSeeInstances(nudge.linkTo)}
+            />
           ))}
         </div>
       </Section>
@@ -244,7 +274,13 @@ function LanguageTab({ data }: { data: MirrorData }) {
   );
 }
 
-function DemographicsTab({ data }: { data: MirrorData }) {
+function DemographicsTab({
+  data,
+  onSeeInstances,
+}: {
+  data: MirrorData;
+  onSeeInstances: (linkTo: string | undefined) => void;
+}) {
   const demoNudges = data.nudges.filter((n) => /Pipeline/i.test(n.tag));
   return (
     <>
@@ -267,7 +303,11 @@ function DemographicsTab({ data }: { data: MirrorData }) {
       <Section title="Reflections" anchor="demo-nudges">
         <div className="grid grid-cols-2 gap-4">
           {demoNudges.map((n) => (
-            <NudgeCard key={n.id} nudge={n} />
+            <NudgeCard
+              key={n.id}
+              nudge={n}
+              onSeeInstances={(nudge) => onSeeInstances(nudge.linkTo)}
+            />
           ))}
         </div>
       </Section>
