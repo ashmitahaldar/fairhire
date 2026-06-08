@@ -49,9 +49,21 @@ export interface AnalysisVM {
   error: string | null;
 }
 
+/** Database DecisionOutcome — matches the Prisma enum. */
+export type DecisionOutcome = 'hired' | 'rejected' | 'in_progress';
+
+/** Recorded outcome for this meeting's primary candidate, or null if none yet. */
+export interface DecisionVM {
+  /** Decision.id when persisted; null while none exists yet. */
+  id: string | null;
+  outcome: DecisionOutcome;
+}
+
 export interface MeetingVM {
   id: string;
   title: string;
+  /** Candidate.id for the primary candidate — needed when creating a Decision. */
+  candidateId: string | null;
   candidateName: string;
   candidateRole: string;
   /** formatted Meeting.date */
@@ -60,4 +72,6 @@ export interface MeetingVM {
   transcript: TranscriptParagraph[];
   flags: FlagVM[];
   analysis: AnalysisVM;
+  /** Current decision for the primary candidate (null id = unrecorded). */
+  decision: DecisionVM;
 }

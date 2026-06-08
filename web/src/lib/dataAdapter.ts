@@ -2,6 +2,7 @@ import type { AnalysisStatus, FlagType } from '@fairhire/shared';
 import { severityFor } from './severity';
 import {
   FLAG_TYPE_LABELS,
+  type DecisionOutcome,
   type FlagVM,
   type MeetingVM,
   type TranscriptParagraph,
@@ -26,14 +27,21 @@ interface AnalysisRunResponse {
   error: string | null;
 }
 
+interface DecisionResponse {
+  id: string;
+  candidateId: string;
+  outcome: DecisionOutcome;
+}
+
 export interface MeetingResponse {
   id: string;
   title: string;
   transcript: string;
   date: string;
-  candidates: { candidate: { name: string; roleAppliedFor: string } }[];
+  candidates: { candidate: { id: string; name: string; roleAppliedFor: string } }[];
   flags: FlagResponse[];
   analysisRuns: AnalysisRunResponse[];
+  decisions: DecisionResponse[];
 }
 
 // ── Transcript segmentation ──────────────────────────────────────────────────
@@ -137,10 +145,17 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
 
   const run = res.analysisRuns[0] ?? null;
   const candidate = res.candidates[0]?.candidate;
+  // Decision for the primary candidate, if any has been recorded. The
+  // schema permits multiple decisions per (meeting, candidate) but UX-wise
+  // we treat the latest as the canonical one and PATCH it on change.
+  const decision = candidate
+    ? (res.decisions.find((d) => d.candidateId === candidate.id) ?? null)
+    : null;
 
   return {
     id: res.id,
     title: res.title,
+    candidateId: candidate?.id ?? null,
     candidateName: candidate?.name ?? 'Unknown candidate',
     candidateRole: candidate?.roleAppliedFor ?? '',
     panelDate: formatDate(res.date),
@@ -156,5 +171,8 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
       spansEvaluated: wordCount(res.transcript),
       error: run?.error ?? null,
     },
+    decision: decision
+      ? { id: decision.id, outcome: decision.outcome }
+      : { id: null, outcome: 'in_progress' },
   };
 }
