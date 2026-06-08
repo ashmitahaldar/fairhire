@@ -40,6 +40,17 @@
     --color-chip-represented:  oklch(0.320 0.008 70);   /* dark warm grey */
     --color-chip-majority:     oklch(0.720 0.006 70);   /* light warm grey */
 
+    /* Race-segment fills for the Demographics pipeline (Phase C).
+       Editorial muted, hue-spaced 280/150/50/320 — quiet enough to sit
+       alongside serif type without competing with the oxblood accent or
+       the flag-severity palette. Unknown is desaturated and lighter so it
+       reads as "incomplete" rather than as a fifth ethnic group. */
+    --color-segment-chinese:   oklch(0.520 0.060 280);  /* muted indigo */
+    --color-segment-malay:     oklch(0.550 0.080 150);  /* muted sage */
+    --color-segment-indian:    oklch(0.550 0.075  50);  /* muted terracotta */
+    --color-segment-other:     oklch(0.500 0.050 320);  /* muted plum */
+    --color-segment-unknown:   oklch(0.780 0.005  80);  /* warm neutral grey */
+
     /* ── Focus ────────────────────────────────────────────── */
     --color-ring:              oklch(0.450 0.120 25);
 

@@ -11,6 +11,21 @@ interface ConversionRow {
   gap: number;       // positive = majority advances at higher rate
 }
 
+// Collapses a multi-segment pipeline row to the binary "represented vs
+// majority" view the ConversionGrid is built around. Convention from
+// Section 3 of the Week 4 plan: Chinese = majority, non-Chinese
+// (Malay + Indian + Other) = represented. Unknown-race candidates are
+// excluded from both — they don't have a meaningful group membership
+// for this transition rate, and including them in either bucket would
+// skew the gap signal.
+function binarize(row: PipelineRow): { represented: number; majority: number } {
+  const { chinese, malay, indian, other } = row.segments;
+  return {
+    majority: chinese,
+    represented: malay + indian + other,
+  };
+}
+
 // Pure: pipeline → per-transition conversion rates for represented vs majority.
 // Exported so the math is testable in isolation. If a stage starts with zero
 // candidates in a group, the conversion rate is treated as 0 — there's no
@@ -19,12 +34,12 @@ interface ConversionRow {
 export function computeConversionRows(pipeline: PipelineRow[]): ConversionRow[] {
   const rows: ConversionRow[] = [];
   for (let i = 1; i < pipeline.length; i++) {
-    const prev = pipeline[i - 1];
-    const curr = pipeline[i];
+    const prev = binarize(pipeline[i - 1]!);
+    const curr = binarize(pipeline[i]!);
     const repPct = prev.represented === 0 ? 0 : (curr.represented / prev.represented) * 100;
     const majPct = prev.majority === 0 ? 0 : (curr.majority / prev.majority) * 100;
     rows.push({
-      label: `${prev.stage} → ${curr.stage}`,
+      label: `${pipeline[i - 1]!.stage} → ${pipeline[i]!.stage}`,
       repPct,
       majPct,
       gap: majPct - repPct,

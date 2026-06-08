@@ -19,21 +19,33 @@ type MeetingFixture = {
 
 type PreviousFlagCount = { flagType: string; _count: { _all: number } };
 
+type PipelineCandidateFixture = {
+  id: string;
+  createdAt: Date;
+  demographics: { race: string | null } | null;
+  meetings: Array<{ meetingId: string }>;
+  decisions: Array<{ outcome: 'hired' | 'rejected' | 'in_progress' }>;
+};
+
 function makeTx(
   meetings: MeetingFixture[],
   previousFlagCounts: PreviousFlagCount[] = [],
+  pipelineCandidates: PipelineCandidateFixture[] = [],
 ): {
   tx: TransactionClient;
   findMany: jest.Mock;
   groupBy: jest.Mock;
+  candidateFindMany: jest.Mock;
 } {
   const findMany = jest.fn().mockResolvedValue(meetings);
   const groupBy = jest.fn().mockResolvedValue(previousFlagCounts);
+  const candidateFindMany = jest.fn().mockResolvedValue(pipelineCandidates);
   const tx = {
     meeting: { findMany },
     flag: { groupBy },
+    candidate: { findMany: candidateFindMany },
   } as unknown as TransactionClient;
-  return { tx, findMany, groupBy };
+  return { tx, findMany, groupBy, candidateFindMany };
 }
 
 const baseInput = {
@@ -69,7 +81,7 @@ describe('getPeriodWindows', () => {
 });
 
 describe('aggregateMirror — empty manager', () => {
-  it('returns zeroed summary, no decisions, and empty B/C/D arrays', async () => {
+  it('returns zeroed summary, no decisions, and empty Phase B/D arrays', async () => {
     const { tx } = makeTx([]);
     const data = await aggregateMirror(tx, baseInput);
 
@@ -84,9 +96,29 @@ describe('aggregateMirror — empty manager', () => {
     });
     expect(data.decisions).toEqual([]);
     expect(data.recentDecisions).toEqual([]);
-    expect(data.pipeline).toEqual([]);
     expect(data.languageFlags).toEqual([]);
     expect(data.nudges).toEqual([]);
+  });
+
+  it('returns the 4 pipeline stages with all-zero segments when there are no candidates', async () => {
+    const { tx } = makeTx([], [], []);
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.pipeline.map((r) => r.stage)).toEqual([
+      'Applied',
+      'Interviewed',
+      'Hired',
+      'Rejected',
+    ]);
+    for (const row of data.pipeline) {
+      expect(row.total).toBe(0);
+      expect(row.segments).toEqual({
+        chinese: 0,
+        malay: 0,
+        indian: 0,
+        other: 0,
+        unknown: 0,
+      });
+    }
   });
 
   it('still returns the manager header and period metadata', async () => {
@@ -451,5 +483,152 @@ describe('aggregateMirror — languageFlags (Phase B)', () => {
     const data = await aggregateMirror(tx, baseInput);
     const row = data.languageFlags.find((r) => r.id === 'criteria_drift');
     expect(row?.delta).toBe(2); // 2 − 0
+  });
+});
+
+describe('aggregateMirror — pipeline (Phase C)', () => {
+  // Anchor candidate-created dates inside the 90d default window so the
+  // Applied-stage date check passes (now − 90d ≤ createdAt ≤ now).
+  const within = new Date('2026-05-15T00:00:00Z');
+
+  function pc(
+    id: string,
+    overrides: Partial<PipelineCandidateFixture> = {},
+  ): PipelineCandidateFixture {
+    return {
+      id,
+      createdAt: within,
+      demographics: null,
+      meetings: [],
+      decisions: [],
+      ...overrides,
+    };
+  }
+
+  it('buckets each candidate into every stage they qualify for', async () => {
+    const { tx } = makeTx(
+      [],
+      [],
+      [
+        // Applied-only — has a createdAt in window, no meetings, no decisions
+        pc('appliedOnly', { demographics: { race: 'chinese' } }),
+        // Applied + Interviewed
+        pc('interviewed', {
+          demographics: { race: 'malay' },
+          meetings: [{ meetingId: 'm1' }],
+        }),
+        // Applied + Interviewed + Hired
+        pc('hired', {
+          demographics: { race: 'indian' },
+          meetings: [{ meetingId: 'm2' }],
+          decisions: [{ outcome: 'hired' }],
+        }),
+        // Applied + Interviewed + Rejected
+        pc('rejected', {
+          demographics: { race: 'other' },
+          meetings: [{ meetingId: 'm3' }],
+          decisions: [{ outcome: 'rejected' }],
+        }),
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+
+    const byStage = Object.fromEntries(data.pipeline.map((r) => [r.stage, r]));
+    expect(byStage.Applied?.total).toBe(4); // all four created in window
+    expect(byStage.Interviewed?.total).toBe(3);
+    expect(byStage.Hired?.total).toBe(1);
+    expect(byStage.Rejected?.total).toBe(1);
+
+    // Race breakdowns: each candidate contributes to the segment of their race
+    expect(byStage.Applied?.segments.chinese).toBe(1);
+    expect(byStage.Applied?.segments.malay).toBe(1);
+    expect(byStage.Interviewed?.segments.indian).toBe(1);
+    expect(byStage.Hired?.segments.indian).toBe(1);
+    expect(byStage.Rejected?.segments.other).toBe(1);
+  });
+
+  it('buckets candidates with no demographics row into the unknown segment', async () => {
+    const { tx } = makeTx(
+      [],
+      [],
+      [
+        pc('noDemo1', { demographics: null }),
+        pc('noDemo2', { demographics: null, meetings: [{ meetingId: 'm1' }] }),
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    const applied = data.pipeline.find((r) => r.stage === 'Applied');
+    const interviewed = data.pipeline.find((r) => r.stage === 'Interviewed');
+    expect(applied?.segments.unknown).toBe(2);
+    expect(interviewed?.segments.unknown).toBe(1);
+  });
+
+  it('buckets candidates with race: null into the unknown segment', async () => {
+    const { tx } = makeTx(
+      [],
+      [],
+      [pc('nullRace', { demographics: { race: null } })],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.pipeline.find((r) => r.stage === 'Applied')?.segments.unknown).toBe(1);
+  });
+
+  it('does not count a candidate as Applied if their createdAt falls outside the current window', async () => {
+    const { tx } = makeTx(
+      [],
+      [],
+      [
+        // Created 200 days ago — outside the default 90d window. But still
+        // returned by findMany because they had an in-window meeting.
+        pc('oldCand', {
+          createdAt: new Date('2025-11-01T00:00:00Z'),
+          demographics: { race: 'chinese' },
+          meetings: [{ meetingId: 'm1' }],
+        }),
+      ],
+    );
+
+    const data = await aggregateMirror(tx, baseInput);
+    expect(data.pipeline.find((r) => r.stage === 'Applied')?.total).toBe(0);
+    expect(data.pipeline.find((r) => r.stage === 'Interviewed')?.total).toBe(1);
+  });
+
+  it('passes the correct OR-leg filters and select shape to candidate.findMany', async () => {
+    const now = new Date('2026-06-01T12:00:00Z');
+    const { tx, candidateFindMany } = makeTx([], [], []);
+    await aggregateMirror(tx, { ...baseInput, now });
+
+    const call = candidateFindMany.mock.calls[0]?.[0];
+    expect(call.where.deletedAt).toBeNull();
+    expect(call.where.OR).toHaveLength(3);
+    // Includes must scope to this manager within the same window so
+    // out-of-window meetings/decisions don't leak into the bucket count.
+    expect(call.select.meetings.where.meeting.managerId).toBe('mgr-1');
+    expect(call.select.decisions.where.managerId).toBe('mgr-1');
+  });
+
+  it('totals always equal the sum of segments', async () => {
+    const { tx } = makeTx(
+      [],
+      [],
+      [
+        pc('a', { demographics: { race: 'chinese' } }),
+        pc('b', { demographics: { race: 'malay' }, meetings: [{ meetingId: 'm' }] }),
+        pc('c', { demographics: null, decisions: [{ outcome: 'hired' }] }),
+      ],
+    );
+    const data = await aggregateMirror(tx, baseInput);
+    for (const row of data.pipeline) {
+      const sum =
+        row.segments.chinese +
+        row.segments.malay +
+        row.segments.indian +
+        row.segments.other +
+        row.segments.unknown;
+      expect(row.total).toBe(sum);
+    }
   });
 });

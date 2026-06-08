@@ -17,10 +17,25 @@ export interface MirrorDecision {
   daysAgo: number;         // 0 = today
 }
 
+// Race-segment keys for the Demographics pipeline. Mirrors the
+// canonical RACE_SEGMENT_KEYS in @fairhire/shared (kept local here so
+// the mock and chart can compile without depending on shared mid-step).
+export type RaceSegmentKey = 'chinese' | 'malay' | 'indian' | 'other' | 'unknown';
+
+export const RACE_SEGMENT_KEYS: readonly RaceSegmentKey[] = [
+  'chinese',
+  'malay',
+  'indian',
+  'other',
+  'unknown',
+] as const;
+
 export interface PipelineRow {
   stage: string;
-  represented: number;
-  majority: number;
+  // Per-segment headcount for this stage. Unknown captures candidates
+  // whose demographics row is missing or whose race field is null —
+  // bucketed transparently rather than silently dropped.
+  segments: Record<RaceSegmentKey, number>;
   total: number;
 }
 
@@ -152,12 +167,29 @@ export const mirrorData: MirrorData = {
   },
   decisions,
   recentDecisions: decisions.slice(0, 8),
+  // Mock funnel uses the 4 stages the schema actually models (Section 3
+  // of the Week 4 plan) and shows race composition per stage.
   pipeline: [
-    { stage: 'Applied',     represented: 312, majority: 488, total: 800 },
-    { stage: 'Screened',    represented: 142, majority: 268, total: 410 },
-    { stage: 'Interviewed', represented:  58, majority: 138, total: 196 },
-    { stage: 'Offered',     represented:  14, majority:  46, total:  60 },
-    { stage: 'Hired',       represented:   9, majority:  33, total:  42 },
+    {
+      stage: 'Applied',
+      segments: { chinese: 488, malay: 168, indian: 96, other: 28, unknown: 20 },
+      total: 800,
+    },
+    {
+      stage: 'Interviewed',
+      segments: { chinese: 138, malay: 38, indian: 14, other: 4, unknown: 2 },
+      total: 196,
+    },
+    {
+      stage: 'Hired',
+      segments: { chinese: 18, malay: 5, indian: 2, other: 1, unknown: 0 },
+      total: 26,
+    },
+    {
+      stage: 'Rejected',
+      segments: { chinese: 80, malay: 22, indian: 8, other: 2, unknown: 1 },
+      total: 113,
+    },
   ],
   languageFlags: [
     { id: 'age-tone',         label: 'Energy / pace language',          count: 12, delta:  4, highlight: true },

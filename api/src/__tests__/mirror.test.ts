@@ -17,6 +17,7 @@ jest.mock('../lib/prisma', () => ({
   prisma: {
     meeting: { findMany: jest.fn() },
     flag: { groupBy: jest.fn() },
+    candidate: { findMany: jest.fn() },
   },
   systemPrisma: {
     manager: { findUnique: jest.fn() },
@@ -30,6 +31,7 @@ import { prisma, systemPrisma, withManagerContext } from '../lib/prisma';
 const mockSystemManagerFindUnique = systemPrisma.manager.findUnique as jest.Mock;
 const mockMeetingFindMany = prisma.meeting.findMany as jest.Mock;
 const mockFlagGroupBy = prisma.flag.groupBy as jest.Mock;
+const mockCandidateFindMany = prisma.candidate.findMany as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 
 const app = createApp();
@@ -59,6 +61,7 @@ beforeEach(() => {
   });
   mockMeetingFindMany.mockResolvedValue([]);
   mockFlagGroupBy.mockResolvedValue([]);
+  mockCandidateFindMany.mockResolvedValue([]);
 });
 
 describe('GET /mirror', () => {
@@ -75,10 +78,18 @@ describe('GET /mirror', () => {
       summary: { interviewsCount: 0, totalFlags: 0 },
       decisions: [],
       recentDecisions: [],
-      pipeline: [],
       languageFlags: [],
       nudges: [],
     });
+    // Pipeline always returns the 4 stages; with no candidates each row is
+    // present but zeroed.
+    expect(res.body.pipeline.map((r: { stage: string }) => r.stage)).toEqual([
+      'Applied',
+      'Interviewed',
+      'Hired',
+      'Rejected',
+    ]);
+    expect(res.body.pipeline.every((r: { total: number }) => r.total === 0)).toBe(true);
     expect(mockWithManagerContext).toHaveBeenCalledWith(managerA.id, expect.any(Function));
   });
 

@@ -2,6 +2,7 @@ import {
   DELTA_PRIOR_WINDOW_MIN_FLAGS,
   FLAG_TYPES,
   FLAG_TYPE_LABELS,
+  RACE_SEGMENT_KEYS,
   type FlagType,
   type LanguageFlagRow,
   type MirrorData,
@@ -10,6 +11,8 @@ import {
   type MirrorPeriod,
   type MirrorSummary,
   type PipelineRow,
+  type Race,
+  type RaceSegmentKey,
 } from '@fairhire/shared';
 import type { TransactionClient } from '../lib/prisma';
 
@@ -137,10 +140,75 @@ export async function aggregateMirror(
     _count: { _all: true },
   });
 
+  // Phase C — pipeline composition (Section 3 of the plan). One query
+  // pulls every candidate that participates in any of the 4 stages
+  // within the period, with the relations needed to bucket them. The
+  // outer OR keeps the result set tight; the include `where` clauses
+  // mirror the same scope so includes don't drag in out-of-window rows.
+  //
+  // Asymmetric scope, by design: Applied is org-wide (RLS-scoped),
+  // because "candidates who entered the org's pool" is the meaningful
+  // top-of-funnel. The downstream stages (Interviewed / Hired /
+  // Rejected) are scoped to this manager — they read as "the slice of
+  // the org pool that flowed through my pipeline."
+  const pipelineCandidates = await tx.candidate.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        // Applied — any candidate added to the org during the window
+        { createdAt: { gte: windows.current.start, lte: windows.current.end } },
+        // Interviewed — has a meeting in this window owned by this manager
+        {
+          meetings: {
+            some: {
+              meeting: {
+                managerId,
+                date: { gte: windows.current.start, lte: windows.current.end },
+              },
+            },
+          },
+        },
+        // Hired or Rejected — has a decision in this window from this manager
+        {
+          decisions: {
+            some: {
+              managerId,
+              meeting: {
+                date: { gte: windows.current.start, lte: windows.current.end },
+              },
+            },
+          },
+        },
+      ],
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      demographics: { select: { race: true } },
+      meetings: {
+        where: {
+          meeting: {
+            managerId,
+            date: { gte: windows.current.start, lte: windows.current.end },
+          },
+        },
+        select: { meetingId: true },
+      },
+      decisions: {
+        where: {
+          managerId,
+          meeting: { date: { gte: windows.current.start, lte: windows.current.end } },
+        },
+        select: { outcome: true },
+      },
+    },
+  });
+
   const summary = buildSummary(meetings);
   const decisions = buildDecisions(meetings, now);
   const recentDecisions = [...decisions].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8);
   const languageFlags = buildLanguageFlags(meetings, previousFlagCounts);
+  const pipeline = buildPipeline(pipelineCandidates, windows.current);
 
   return {
     manager: {
@@ -155,9 +223,8 @@ export async function aggregateMirror(
     decisions,
     recentDecisions,
     languageFlags,
-    // Phase C/D placeholders. The frontend gates these per-section per
-    // Section 1; an empty array is a valid "no data yet" signal.
-    pipeline: [] as PipelineRow[],
+    pipeline,
+    // Phase D placeholder — empty array is a valid "no data yet" signal.
     nudges: [],
   };
 }
@@ -267,6 +334,72 @@ function buildLanguageFlags(
     rows[0]!.highlight = true;
   }
   return rows;
+}
+
+// ── Pipeline composition (Phase C) ────────────────────────────────────────
+// 4-stage funnel × 5 race segments per stage. Each candidate is bucketed
+// into every stage they qualify for in the current window (one candidate
+// can appear in Applied + Interviewed + Hired simultaneously — funnels
+// are snapshots, not trajectories). Missing race ⇒ 'unknown' segment so
+// the picture stays honest about data completeness. See Section 3.
+
+const PIPELINE_STAGES = ['Applied', 'Interviewed', 'Hired', 'Rejected'] as const;
+
+type PipelineCandidate = {
+  id: string;
+  createdAt: Date;
+  demographics: { race: Race | null } | null;
+  meetings: Array<{ meetingId: string }>;
+  decisions: Array<{ outcome: 'hired' | 'rejected' | 'in_progress' }>;
+};
+
+function raceSegmentKey(c: PipelineCandidate): RaceSegmentKey {
+  return (c.demographics?.race ?? 'unknown') as RaceSegmentKey;
+}
+
+function emptySegments(): Record<RaceSegmentKey, number> {
+  const out = {} as Record<RaceSegmentKey, number>;
+  for (const k of RACE_SEGMENT_KEYS) out[k] = 0;
+  return out;
+}
+
+function buildPipeline(
+  candidates: PipelineCandidate[],
+  currentWindow: PeriodWindow,
+): PipelineRow[] {
+  // One segments map per stage. Bucket as we walk the candidates.
+  const stageBuckets: Record<(typeof PIPELINE_STAGES)[number], Record<RaceSegmentKey, number>> = {
+    Applied: emptySegments(),
+    Interviewed: emptySegments(),
+    Hired: emptySegments(),
+    Rejected: emptySegments(),
+  };
+
+  for (const c of candidates) {
+    const key = raceSegmentKey(c);
+
+    // Applied — createdAt fell in the current window. The outer findMany
+    // OR includes candidates who match through any of the three legs, so
+    // we re-check the date here rather than assuming.
+    if (c.createdAt >= currentWindow.start && c.createdAt <= currentWindow.end) {
+      stageBuckets.Applied[key] += 1;
+    }
+
+    if (c.meetings.length > 0) {
+      stageBuckets.Interviewed[key] += 1;
+    }
+
+    const hasHired = c.decisions.some((d) => d.outcome === 'hired');
+    const hasRejected = c.decisions.some((d) => d.outcome === 'rejected');
+    if (hasHired) stageBuckets.Hired[key] += 1;
+    if (hasRejected) stageBuckets.Rejected[key] += 1;
+  }
+
+  return PIPELINE_STAGES.map((stage) => {
+    const segments = stageBuckets[stage];
+    const total = RACE_SEGMENT_KEYS.reduce((s, k) => s + segments[k], 0);
+    return { stage, segments, total };
+  });
 }
 
 // ── Decisions list ────────────────────────────────────────────────────────
