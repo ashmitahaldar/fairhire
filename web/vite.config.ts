@@ -10,6 +10,15 @@ export default defineConfig({
   // the missing publishable key at module eval and React never mounts.
   envDir: '..',
   plugins: [react()],
+  // @fairhire/shared is a workspace package that emits CommonJS — without
+  // pre-bundling, Vite serves its dist files via /@fs and the browser fails
+  // on named imports ("does not provide an export named X") as soon as the
+  // CJS export set changes between rebuilds. Forcing optimizeDeps wraps it
+  // in an ESM shim and keeps named exports stable. Re-run web after every
+  // shared rebuild so this picks up the new export set.
+  optimizeDeps: {
+    include: ['@fairhire/shared'],
+  },
   css: {
     // tailwind.config.ts lives in src/ (design drop), so point PostCSS at it
     // explicitly rather than relying on root auto-discovery.

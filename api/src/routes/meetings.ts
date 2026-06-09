@@ -100,6 +100,13 @@ meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {
         candidates: { include: candidateWithDemographics },
         flags: true,
         analysisRuns: { orderBy: { createdAt: 'desc' }, take: 1 },
+        // Decisions recorded against this meeting (by this manager via
+        // RLS). The Flag Review screen surfaces the current outcome
+        // per candidate so the manager can record/change a decision
+        // without leaving the page.
+        decisions: {
+          select: { id: true, candidateId: true, outcome: true },
+        },
       },
     });
   });

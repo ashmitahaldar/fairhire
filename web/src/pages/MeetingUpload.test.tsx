@@ -59,7 +59,9 @@ describe('MeetingUpload', () => {
     fireEvent.change(screen.getByLabelText('Transcript'), {
       target: { value: 'A genuine debrief transcript.' },
     });
-    fireEvent.click(screen.getByRole('checkbox'));
+    // The candidate list is now a listbox of role="option" rows (no
+    // visible checkbox) — click the row itself to toggle selection.
+    fireEvent.click(screen.getByRole('option', { name: /Ahmad Faris/ }));
     fireEvent.click(screen.getByRole('button', { name: /upload & analyse/i }));
 
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/meetings/m1'));

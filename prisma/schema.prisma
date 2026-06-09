@@ -119,11 +119,15 @@ model Manager {
 }
 
 model Candidate {
-  id             String   @id @default(uuid())
-  orgId          String   @map("org_id")
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
   name           String
-  roleAppliedFor String   @map("role_applied_for")
-  createdAt      DateTime @default(now()) @map("created_at")
+  roleAppliedFor String    @map("role_applied_for")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  // Soft-delete marker. List endpoints filter on deletedAt: null so a
+  // candidate that has linked meetings/flags/decisions can be hidden
+  // without orphaning analysis history. NULL = active.
+  deletedAt      DateTime? @map("deleted_at")
 
   org          Organisation           @relation(fields: [orgId], references: [id])
   meetings     MeetingCandidate[]
@@ -134,6 +138,7 @@ model Candidate {
   // FK — lets that FK pin a demographics row to a candidate in the same org.
   @@unique([id, orgId])
   @@index([orgId])
+  @@index([orgId, deletedAt])
   @@map("candidates")
 }
 
@@ -222,6 +227,11 @@ model Decision {
 
   @@index([managerId])
   @@index([orgId])
+  // One decision per (meeting, candidate) pair — closes the
+  // duplicate-on-race window where the Flag Review decision panel could
+  // POST twice before the meeting query refetched the existing decision id.
+  // PATCH on the existing row stays the canonical edit path.
+  @@unique([meetingId, candidateId])
   @@map("decisions")
 }
 

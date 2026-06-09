@@ -32,6 +32,29 @@ const checks: Record<string, OwnershipCheck> = {
     });
     return flag?.meeting?.managerId === req.manager.id;
   },
+
+  // Hybrid access for candidates: the candidates list is org-scoped (any
+  // manager in the org sees every candidate) but writes are gated to
+  // candidates the caller has actually interviewed. The check passes only
+  // if at least one MeetingCandidate row links this candidate to a meeting
+  // owned by req.manager AND the candidate is still active (deletedAt: null
+  // — writes on tombstoned candidates are refused). Returns 403 in all
+  // failure cases (missing candidate, soft-deleted candidate, not-yet-
+  // interviewed) so existence isn't leaked.
+  candidate: async (req) => {
+    const link = await systemPrisma.meetingCandidate.findFirst({
+      where: {
+        candidateId: req.params.id,
+        // Belt-and-braces: even if a caller passes a candidate id from
+        // another org, the relation filter refuses. The RLS UPDATE policy
+        // (001_rls.sql) is the primary defence; this is the secondary one.
+        candidate: { deletedAt: null, orgId: req.manager.orgId },
+        meeting: { managerId: req.manager.id },
+      },
+      select: { meetingId: true },
+    });
+    return link !== null;
+  },
 };
 
 export function requireOwnership(resource: keyof typeof checks) {

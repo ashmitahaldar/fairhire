@@ -28,11 +28,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON candidate_demographics TO app_user;
 
 
 -- ─── Policies ─────────────────────────────────────────────────────────────
--- Mirrors `candidates` (001_rls.sql:108-118): org-scoped SELECT + INSERT.
--- Only SELECT and INSERT *policies* are defined. UPDATE/DELETE policies are
--- deliberately omitted: table privileges above remain broad, but with no
--- UPDATE/DELETE policy RLS blocks those operations for app_user anyway. Net
--- effective access is read+insert — same as `candidates`.
+-- Mirrors `candidates` (001_rls.sql:108-145):
+--   SELECT + INSERT are org-scoped (any manager in the org).
+--   UPDATE is narrower — only managers who have interviewed the candidate
+--   (matches requireOwnership('candidate') and the candidates UPDATE policy).
+-- DELETE policy is omitted: app code never hard-deletes a demographics row;
+-- when present rows are upserted, when absent they are created via the
+-- INSERT policy. No code path needs DELETE.
 
 CREATE POLICY "managers_select_org_candidate_demographics"
   ON candidate_demographics FOR SELECT TO app_user
@@ -42,6 +44,21 @@ CREATE POLICY "managers_select_org_candidate_demographics"
 
 CREATE POLICY "managers_insert_org_candidate_demographics"
   ON candidate_demographics FOR INSERT TO app_user
+  WITH CHECK (
+    org_id = (SELECT org_id FROM managers WHERE id = current_manager_id())
+  );
+
+CREATE POLICY "managers_update_linked_candidate_demographics"
+  ON candidate_demographics FOR UPDATE TO app_user
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM meeting_candidates mc
+      JOIN meetings m ON m.id = mc.meeting_id
+      WHERE mc.candidate_id = candidate_demographics.candidate_id
+        AND m.manager_id = current_manager_id()
+    )
+  )
   WITH CHECK (
     org_id = (SELECT org_id FROM managers WHERE id = current_manager_id())
   );

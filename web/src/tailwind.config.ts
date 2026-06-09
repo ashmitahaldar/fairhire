@@ -42,6 +42,19 @@ const config: Config = {
         "flag-med":       "var(--color-flag-med)",
         "flag-low":       "var(--color-flag-low)",
 
+        // race-segment fills for the Demographics pipeline (Phase C).
+        // Inline `style={{background: var(...)}}` is the primary consumer
+        // since the chart iterates a programmatic key list; these utilities
+        // are here for completeness so the tokens are also usable via
+        // `bg-segment-*` in static markup.
+        segment: {
+          chinese: "var(--color-segment-chinese)",
+          malay:   "var(--color-segment-malay)",
+          indian:  "var(--color-segment-indian)",
+          other:   "var(--color-segment-other)",
+          unknown: "var(--color-segment-unknown)",
+        },
+
         // shadcn pass-through (compat)
         background:       "var(--background)",
         foreground:       "var(--foreground)",

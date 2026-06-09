@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
@@ -38,17 +39,31 @@ decisionsRouter.post('/', async (req, res) => {
     return;
   }
 
-  const decision = await withManagerContext(req.manager.id, async (tx) => {
-    return tx.decision.create({
-      data: {
-        ...parsed.data,
-        managerId: req.manager.id,
-        orgId: req.manager.orgId,
-      },
+  try {
+    const decision = await withManagerContext(req.manager.id, async (tx) => {
+      return tx.decision.create({
+        data: {
+          ...parsed.data,
+          managerId: req.manager.id,
+          orgId: req.manager.orgId,
+        },
+      });
     });
-  });
-
-  res.status(201).json(decision);
+    res.status(201).json(decision);
+  } catch (err) {
+    // Unique constraint on (meetingId, candidateId) — race between two
+    // panel clicks that both saw decision.id === null. Surface as 409 so
+    // the client can swallow it and refetch the now-existing row instead
+    // of treating it as a hard failure.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      res.status(409).json({ error: 'Decision already exists for this meeting and candidate' });
+      return;
+    }
+    throw err;
+  }
 });
 
 decisionsRouter.patch('/:id', requireOwnership('decision'), async (req, res) => {

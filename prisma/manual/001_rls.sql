@@ -103,7 +103,13 @@ CREATE POLICY "managers_update_self"
 
 
 -- ─── candidates ───────────────────────────────────────────────────────────
--- Candidates are org-scoped. Any manager in the org can read/create them.
+-- Candidates are org-scoped for SELECT/INSERT (any manager in the org can
+-- read and create) but writes (UPDATE — covers soft-delete via deleted_at)
+-- are narrower: only managers who have actually interviewed the candidate
+-- (i.e. there is a meeting_candidates row joined to a meeting they own).
+-- This matches requireOwnership('candidate') in
+-- api/src/middleware/requireOwnership.ts so the JS-side gate and the
+-- database-side gate agree.
 
 CREATE POLICY "managers_select_org_candidates"
   ON candidates FOR SELECT TO app_user
@@ -113,6 +119,21 @@ CREATE POLICY "managers_select_org_candidates"
 
 CREATE POLICY "managers_insert_org_candidates"
   ON candidates FOR INSERT TO app_user
+  WITH CHECK (
+    org_id = (SELECT org_id FROM managers WHERE id = current_manager_id())
+  );
+
+CREATE POLICY "managers_update_linked_candidates"
+  ON candidates FOR UPDATE TO app_user
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM meeting_candidates mc
+      JOIN meetings m ON m.id = mc.meeting_id
+      WHERE mc.candidate_id = candidates.id
+        AND m.manager_id = current_manager_id()
+    )
+  )
   WITH CHECK (
     org_id = (SELECT org_id FROM managers WHERE id = current_manager_id())
   );

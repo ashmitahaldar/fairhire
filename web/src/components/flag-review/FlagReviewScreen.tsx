@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
+import { DecisionPanel } from './DecisionPanel';
 import { useManager } from '../../lib/ManagerContext';
 import { InitialsAvatar } from '../shared/primitives';
 import { AnalysisStatus } from './AnalysisStatus';
@@ -185,6 +186,14 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
           dismissedCount={dismissedCount}
           onRetry={onRetry}
         />
+
+        <div className="mt-6">
+          <DecisionPanel
+            meetingId={meeting.id}
+            candidateId={meeting.candidateId}
+            decision={meeting.decision}
+          />
+        </div>
       </div>
 
       <div className="fh-hairline mb-10" />
