@@ -83,11 +83,11 @@ export interface AggregateMirrorInput {
 
 // Schema enum → editorial display label. DECISION_OUTCOME_LABELS is the
 // single source of truth shared with the Flag Review decision panel and
-// the Candidates table, so vocabularies don't drift across screens. Cast
-// is safe — MirrorDecisionOutcome is a strict superset of the label values
-// returned by the map (Hired / Declined / Pending).
+// the Candidates table, so vocabularies don't drift across screens. The
+// shared map is typed Record<DecisionOutcome, MirrorDecisionOutcome>, so
+// no cast is needed here.
 const toMirrorOutcome = (o: DecisionOutcome): MirrorDecisionOutcome =>
-  DECISION_OUTCOME_LABELS[o] as MirrorDecisionOutcome;
+  DECISION_OUTCOME_LABELS[o];
 
 // ── Aggregator ────────────────────────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 import { DECISION_OUTCOME_LABELS } from '@fairhire/shared';
+import { ApiError } from '../../lib/api';
 import { useUpsertDecision } from '../../lib/decisionsApi';
 import type { DecisionOutcome, DecisionVM } from '../../lib/flagReview';
 
@@ -69,11 +70,16 @@ export function DecisionPanel({ meetingId, candidateId, decision }: DecisionPane
       {pending && (
         <span className="font-mono text-xs text-ink-tertiary">Saving…</span>
       )}
-      {upsert.isError && (
-        <span className="text-xs text-accent" role="alert">
-          Couldn’t save
-        </span>
-      )}
+      {/* 409 = a racing click already saved this decision. The meeting
+          query refetches in onError so the panel picks up the existing
+          row's id; surfacing "Couldn't save" would be misleading because
+          the data is, in fact, saved. Hide the error UI for that case. */}
+      {upsert.isError &&
+        !(upsert.error instanceof ApiError && upsert.error.status === 409) && (
+          <span className="text-xs text-accent" role="alert">
+            Couldn’t save
+          </span>
+        )}
     </div>
   );
 }

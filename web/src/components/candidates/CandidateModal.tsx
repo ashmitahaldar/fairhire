@@ -155,8 +155,11 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
   // long-term move if/when a second modal lands.
   const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab' || !panelRef.current) return;
+    // Skip disabled controls — the browser refuses to focus them, so
+    // including them in the wrap would land the user on a no-op element
+    // (typically the Save button while a save is in flight).
     const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'input, select, textarea, button, [tabindex]:not([tabindex="-1"])',
+      'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     if (focusables.length === 0) return;
     const first = focusables[0]!;
