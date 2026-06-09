@@ -9,6 +9,7 @@ import {
   NUDGE_DISMISSAL_RATE_THRESHOLD,
   NUDGE_MAX_PER_RESPONSE,
   NUDGE_TOP_CATEGORY_DOMINANCE_RATIO,
+  NUDGE_TOP_CATEGORY_MIN_COUNT,
   type LanguageFlagRow,
   type MirrorDecision,
   type MirrorNudge,
@@ -40,7 +41,7 @@ type Rule = (input: NudgeInputs) => RuleResult | null;
 // (≥ 2× the next-most-flagged). Floors absolute count so 2-vs-1 noise
 // doesn't trigger the copy.
 const topCategoryDominance: Rule = ({ summary, languageFlags }) => {
-  if (summary.topCategoryCount < 4) return null;
+  if (summary.topCategoryCount < NUDGE_TOP_CATEGORY_MIN_COUNT) return null;
   if (languageFlags.length < 2) return null;
 
   const top = languageFlags[0]!;

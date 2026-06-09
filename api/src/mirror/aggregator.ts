@@ -1,8 +1,10 @@
 import {
+  DECISION_OUTCOME_LABELS,
   DELTA_PRIOR_WINDOW_MIN_FLAGS,
   FLAG_TYPES,
   FLAG_TYPE_LABELS,
   RACE_SEGMENT_KEYS,
+  type DecisionOutcome,
   type FlagType,
   type LanguageFlagRow,
   type MirrorData,
@@ -79,15 +81,13 @@ export interface AggregateMirrorInput {
   now?: Date;
 }
 
-// Mirrored outcome labels for the Mirror view. The schema's
-// DecisionOutcome is functional (hired | rejected | in_progress); the
-// Mirror's display vocabulary is editorial. 'Advanced' isn't expressible
-// in the current schema so Phase A omits it.
-const OUTCOME_MAP: Record<'hired' | 'rejected' | 'in_progress', MirrorDecisionOutcome> = {
-  hired: 'Hired',
-  rejected: 'Declined',
-  in_progress: 'Pending',
-};
+// Schema enum → editorial display label. DECISION_OUTCOME_LABELS is the
+// single source of truth shared with the Flag Review decision panel and
+// the Candidates table, so vocabularies don't drift across screens. Cast
+// is safe — MirrorDecisionOutcome is a strict superset of the label values
+// returned by the map (Hired / Declined / Pending).
+const toMirrorOutcome = (o: DecisionOutcome): MirrorDecisionOutcome =>
+  DECISION_OUTCOME_LABELS[o] as MirrorDecisionOutcome;
 
 // ── Aggregator ────────────────────────────────────────────────────────────
 
@@ -425,7 +425,7 @@ function buildDecisions(meetings: MeetingRow[], now: Date): MirrorDecision[] {
         surname,
         role: cand.roleAppliedFor,
         flags: flagsCount,
-        outcome: OUTCOME_MAP[d.outcome],
+        outcome: toMirrorOutcome(d.outcome),
         daysAgo: daysBetween(m.date, now),
       });
     }

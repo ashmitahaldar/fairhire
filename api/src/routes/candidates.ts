@@ -14,8 +14,10 @@ export const candidatesRouter = Router();
 // Filter the demographics payload down to only the keys actually present on
 // the wire. Lets PATCH submit a partial body and not clobber fields the
 // caller didn't touch. Explicit `null` is preserved (caller wants to clear);
-// `undefined` is dropped.
-function pickDefined(input: DemographicsInput): DemographicsInput {
+// `undefined` is dropped. Returns `null` (not `{}`) when nothing remains —
+// so the caller can `if (dem) …` without spuriously creating an empty
+// demographics row when the client sent `demographics: {}`.
+function pickDefined(input: DemographicsInput): DemographicsInput | null {
   const out: DemographicsInput = {};
   for (const [k, v] of Object.entries(input) as Array<
     [keyof DemographicsInput, DemographicsInput[keyof DemographicsInput]]
@@ -25,7 +27,7 @@ function pickDefined(input: DemographicsInput): DemographicsInput {
       (out as any)[k] = v;
     }
   }
-  return out;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 // Shape the Prisma row into the wire response. Collapses the nested helper

@@ -1,3 +1,4 @@
+import { DECISION_OUTCOME_LABELS } from '@fairhire/shared';
 import { useUpsertDecision } from '../../lib/decisionsApi';
 import type { DecisionOutcome, DecisionVM } from '../../lib/flagReview';
 
@@ -7,10 +8,12 @@ interface DecisionPanelProps {
   decision: DecisionVM;
 }
 
+// Display order is Hired → Pending → Declined (positive → neutral →
+// negative). Labels come from the canonical shared map.
 const OPTIONS: Array<{ value: DecisionOutcome; label: string }> = [
-  { value: 'hired', label: 'Hired' },
-  { value: 'in_progress', label: 'Pending' },
-  { value: 'rejected', label: 'Declined' },
+  { value: 'hired', label: DECISION_OUTCOME_LABELS.hired },
+  { value: 'in_progress', label: DECISION_OUTCOME_LABELS.in_progress },
+  { value: 'rejected', label: DECISION_OUTCOME_LABELS.rejected },
 ];
 
 // Compact 3-state outcome control. Clicking a button saves immediately —

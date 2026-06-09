@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/clerk-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from './api';
+import { apiFetch, ApiError } from './api';
 import type { DecisionOutcome } from './flagReview';
 
 // Single hook covering both "create decision for this (meeting, candidate)
@@ -50,6 +50,16 @@ export function useUpsertDecision() {
       // on the candidates list.
       void qc.invalidateQueries({ queryKey: ['mirror'] });
       void qc.invalidateQueries({ queryKey: ['candidates'] });
+    },
+    onError: (err, vars) => {
+      // 409 = race between two clicks that both saw decision.id === null.
+      // The existing row is the one we want; refetch the meeting so the
+      // panel picks up its id and the next click PATCHes. The UI's
+      // "couldn't save" indicator still flashes briefly, which is honest —
+      // this particular click didn't save, but the previous one did.
+      if (err instanceof ApiError && err.status === 409) {
+        void qc.invalidateQueries({ queryKey: ['meeting', vars.meetingId] });
+      }
     },
   });
 }

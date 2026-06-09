@@ -84,12 +84,10 @@ export const RACE_SEGMENT_KEYS = [...RACES, 'unknown'] as const;
 export type RaceSegmentKey = (typeof RACE_SEGMENT_KEYS)[number];
 
 // Pipeline-tab decision outcome labels. Display-only (capitalised);
-// distinct from the database DecisionOutcome enum.
-export type MirrorDecisionOutcome =
-  | 'Hired'
-  | 'Advanced'
-  | 'Declined'
-  | 'Pending';
+// distinct from the database DecisionOutcome enum. Matches what the
+// aggregator's outcome map actually emits — re-add 'Advanced' here if
+// the schema ever grows an explicit advanced state (Week 5+).
+export type MirrorDecisionOutcome = 'Hired' | 'Declined' | 'Pending';
 
 export interface MirrorManager {
   name: string;

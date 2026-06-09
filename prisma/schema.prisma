@@ -227,6 +227,11 @@ model Decision {
 
   @@index([managerId])
   @@index([orgId])
+  // One decision per (meeting, candidate) pair — closes the
+  // duplicate-on-race window where the Flag Review decision panel could
+  // POST twice before the meeting query refetched the existing decision id.
+  // PATCH on the existing row stays the canonical edit path.
+  @@unique([meetingId, candidateId])
   @@map("decisions")
 }
 

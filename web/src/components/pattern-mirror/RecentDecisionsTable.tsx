@@ -60,7 +60,6 @@ export function RecentDecisionsTable({ decisions, showRoleCol = true }: RecentDe
 // pending sits in italic secondary; declined drops to tertiary.
 const OUTCOME_CLASS: Record<DecisionOutcome, string> = {
   Hired: 'text-accent font-medium',
-  Advanced: 'text-ink font-medium',
   Declined: 'text-ink-tertiary',
   Pending: 'text-ink-secondary italic',
 };

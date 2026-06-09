@@ -1,5 +1,5 @@
 import type { CandidateListItem } from '../../lib/candidatesApi';
-import type { Gender, Race } from '@fairhire/shared';
+import { DECISION_OUTCOME_LABELS, type Gender, type Race } from '@fairhire/shared';
 
 // One row of the Candidates table. Edit/delete buttons are disabled when
 // canModify is false (the caller hasn't interviewed this candidate, per
@@ -37,11 +37,9 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const OUTCOME_LABEL: Record<NonNullable<CandidateListItem['lastDecisionOutcome']>, string> = {
-  hired: 'Hired',
-  rejected: 'Rejected',
-  in_progress: 'In progress',
-};
+// Display labels come from the canonical shared map so the Candidates page,
+// the Flag Review decision panel, and the Pattern Mirror summary read the
+// same vocabulary (Hired / Declined / Pending).
 
 export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps) {
   const chip = demographicsChip(candidate.demographics);
@@ -65,7 +63,7 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-sm">
         {candidate.lastDecisionOutcome ? (
-          <span className="text-ink">{OUTCOME_LABEL[candidate.lastDecisionOutcome]}</span>
+          <span className="text-ink">{DECISION_OUTCOME_LABELS[candidate.lastDecisionOutcome]}</span>
         ) : (
           <span className="text-ink-tertiary italic">—</span>
         )}

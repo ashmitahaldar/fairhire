@@ -101,6 +101,20 @@ export default function Candidates() {
         </p>
       )}
 
+      {softDelete.isError && (
+        <p className="font-mono text-sm text-accent mb-4" role="alert">
+          Couldn’t delete that candidate. Try again, or refresh the page if
+          the problem persists.{' '}
+          <button
+            type="button"
+            onClick={() => softDelete.reset()}
+            className="underline decoration-hairline underline-offset-4 hover:decoration-ink"
+          >
+            Dismiss
+          </button>
+        </p>
+      )}
+
       {query.data && candidates.length === 0 && <EmptyState onAdd={openCreate} />}
 
       {query.data && candidates.length > 0 && (
@@ -236,7 +250,7 @@ function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: T
             >
               Meetings
             </Th>
-            <th className="py-3 pr-4 font-normal border-b border-hairline">Last outcome</th>
+            <th className="py-3 pr-4 font-normal border-b border-hairline">Your last outcome</th>
             <Th
               onClick={() => onToggleSort('createdAt')}
               active={sort.key === 'createdAt'}

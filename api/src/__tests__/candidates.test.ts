@@ -226,6 +226,26 @@ describe('POST /candidates', () => {
     );
   });
 
+  it('omits the nested demographics write entirely when the payload is an empty object', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockCandidateCreate.mockResolvedValue(rowFromDb({ id: 'new-c' }));
+
+    await request(app)
+      .post('/candidates')
+      .send({
+        name: 'Hannah Lim',
+        roleAppliedFor: 'Associate Analyst',
+        demographics: {}, // all keys undefined → should skip nested create
+      });
+
+    const call = mockCandidateCreate.mock.calls[0][0];
+    // No demographics nested clause should appear — otherwise an empty
+    // CandidateDemographics row gets created on every form save where the
+    // user left every field blank.
+    expect(call.data.demographics).toBeUndefined();
+  });
+
   it('drops undefined demographic keys but preserves explicit nulls', async () => {
     mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
     mockSystemManagerFindUnique.mockResolvedValue(managerA);
@@ -399,7 +419,9 @@ describe('PATCH /candidates/:id', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           candidateId,
-          candidate: { deletedAt: null },
+          // orgId on the candidate relation is belt-and-braces — even if a
+          // caller passes a candidate id from another org, the filter refuses.
+          candidate: { deletedAt: null, orgId: managerA.orgId },
           meeting: { managerId: managerA.id },
         }),
       }),

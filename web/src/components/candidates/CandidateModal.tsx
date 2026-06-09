@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   AGE_BANDS,
+  AGE_BAND_LABELS,
   GENDERS,
+  GENDER_LABELS,
   NATIONALITY_STATUSES,
+  NATIONALITY_STATUS_LABELS,
   RACES,
+  RACE_LABELS,
   type AgeBand,
   type DemographicsInput,
   type Gender,
@@ -29,35 +33,9 @@ interface CandidateModalProps {
   onSaved?: (candidate: CandidateListItem) => void;
 }
 
-// Display labels for the enum dropdowns. Values stay snake_case (the
-// schema's literal-value source); labels are human-readable. Kept inline
-// because no other surface needs them yet — extract to shared if a
-// second consumer appears.
-const RACE_LABELS: Record<Race, string> = {
-  chinese: 'Chinese',
-  malay: 'Malay',
-  indian: 'Indian',
-  other: 'Other',
-};
-const GENDER_LABELS: Record<Gender, string> = {
-  male: 'Male',
-  female: 'Female',
-  non_binary: 'Non-binary',
-  prefer_not_to_say: 'Prefer not to say',
-};
-const AGE_BAND_LABELS: Record<AgeBand, string> = {
-  under_30: 'Under 30',
-  age_30_39: '30–39',
-  age_40_49: '40–49',
-  age_50_plus: '50+',
-};
-const NATIONALITY_LABELS: Record<NationalityStatus, string> = {
-  citizen: 'Citizen',
-  pr: 'PR',
-  ep_holder: 'EP holder',
-  s_pass: 'S Pass',
-  other: 'Other',
-};
+// Display labels come from the canonical shared maps — same vocabulary the
+// CandidatesRow chip and any future HR surface render. Add row-specific
+// abbreviations (e.g. RACE_SHORT) locally to the consumer instead of here.
 
 interface FormState {
   name: string;
@@ -104,10 +82,14 @@ function initialFormState(candidate: CandidateListItem | null): FormState {
 // rejecting the blank as an invalid enum/length. Numbers parse to int or
 // null when blank.
 function buildDemographics(form: FormState): DemographicsInput {
+  // Integer-only: round on the way out so a stray decimal entered into a
+  // number input becomes a whole-year value rather than silently truncating.
+  // The inputs also pin step={1} (see Field tags below) so most browsers
+  // refuse the decimal at entry time; this is the belt-and-braces.
   const intOrNull = (v: string): number | null => {
     if (v === '') return null;
-    const n = parseInt(v, 10);
-    return Number.isNaN(n) ? null : n;
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) ? Math.round(n) : null;
   };
   const strOrNull = (v: string): string | null => (v.trim() === '' ? null : v.trim());
   const enumOrNull = <T extends string>(v: T | ''): T | null => (v === '' ? null : v);
@@ -133,6 +115,7 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
   const [form, setForm] = useState<FormState>(() => initialFormState(candidate));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const create = useCreateCandidateFull();
   const update = useUpdateCandidate();
@@ -164,6 +147,29 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // Minimal focus trap: Tab from the last focusable child wraps to the
+  // first, Shift+Tab from the first wraps to the last. Keeps focus inside
+  // the modal so screen-reader users don't silently land on the page
+  // underneath. Native <dialog> would handle this for free — the right
+  // long-term move if/when a second modal lands.
+  const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+      'input, select, textarea, button, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!open) return null;
 
@@ -215,7 +221,9 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 px-4 py-12 transition-opacity duration-120"
     >
       <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={onPanelKeyDown}
         className="w-full max-w-2xl bg-surface rounded-card shadow-float border border-hairline"
       >
         <div className="px-8 pt-8 pb-2 border-b border-hairline">
@@ -303,7 +311,7 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
               >
                 <option value="">—</option>
                 {NATIONALITY_STATUSES.map((n) => (
-                  <option key={n} value={n}>{NATIONALITY_LABELS[n]}</option>
+                  <option key={n} value={n}>{NATIONALITY_STATUS_LABELS[n]}</option>
                 ))}
               </select>
             </Field>
@@ -324,6 +332,7 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
                 id="cand-yis"
                 type="number"
                 min={0}
+                step={1}
                 value={form.yearsInSingapore}
                 onChange={(e) => set('yearsInSingapore', e.target.value)}
                 className={inputCls}
@@ -361,6 +370,7 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
                 id="cand-yexp"
                 type="number"
                 min={0}
+                step={1}
                 value={form.yearsExperience}
                 onChange={(e) => set('yearsExperience', e.target.value)}
                 className={inputCls}

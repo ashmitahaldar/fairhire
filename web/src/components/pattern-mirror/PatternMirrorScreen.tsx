@@ -169,7 +169,7 @@ function OverviewTab({
           caption="Category count vs previous 90 days"
           anchor="language"
         >
-          <LollipopChart data={data.languageFlags} highlightId="age-tone" />
+          <LollipopChart data={data.languageFlags} />
         </Section>
       </div>
 
@@ -244,7 +244,7 @@ function LanguageTab({
         caption="Across the last 90 days, sorted by frequency. Delta vs previous 90 days."
         anchor="top-language"
       >
-        <LollipopChart data={data.languageFlags} highlightId="age-tone" labelWidth={300} />
+        <LollipopChart data={data.languageFlags} labelWidth={300} />
       </Section>
 
       <Section

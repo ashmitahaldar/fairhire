@@ -45,7 +45,10 @@ const checks: Record<string, OwnershipCheck> = {
     const link = await systemPrisma.meetingCandidate.findFirst({
       where: {
         candidateId: req.params.id,
-        candidate: { deletedAt: null },
+        // Belt-and-braces: even if a caller passes a candidate id from
+        // another org, the relation filter refuses. The RLS UPDATE policy
+        // (001_rls.sql) is the primary defence; this is the secondary one.
+        candidate: { deletedAt: null, orgId: req.manager.orgId },
         meeting: { managerId: req.manager.id },
       },
       select: { meetingId: true },

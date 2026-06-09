@@ -27,8 +27,11 @@ export const PIPELINE_MIN_INTERVIEWED = 3;
 // stubs; Step 7a will refine them after we see the seed data behave.
 
 // "topCategory dominates": topCategoryCount must be at least this
-// multiple of the next-most-flagged category to fire.
+// multiple of the next-most-flagged category to fire. Absolute floor on
+// the top count prevents 2-vs-1 noise from triggering on tiny manager
+// histories.
 export const NUDGE_TOP_CATEGORY_DOMINANCE_RATIO = 2.0;
+export const NUDGE_TOP_CATEGORY_MIN_COUNT = 4;
 
 // "Category surging": current window count for a FlagType must be at
 // least this many and delta must be at least this fraction of the
