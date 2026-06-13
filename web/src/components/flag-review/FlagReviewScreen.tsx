@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
+import { useRerunAnalysis } from '../../lib/useAnalysisRun';
 import { DecisionPanel } from './DecisionPanel';
 import { useManager } from '../../lib/ManagerContext';
 import { InitialsAvatar } from '../shared/primitives';
 import { AnalysisStatus } from './AnalysisStatus';
 import { Gutter, GutterHeader, type GutterMode } from './Gutter';
+import { RerunConfirmModal } from './RerunConfirmModal';
 import { Transcript } from './Transcript';
 
 function initialsOf(name: string): string {
@@ -20,11 +22,9 @@ function initialsOf(name: string): string {
 
 interface FlagReviewScreenProps {
   meeting: MeetingVM;
-  /** re-fetch / re-trigger analysis (used by the failed-state Retry) */
-  onRetry: () => void;
 }
 
-export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
+export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
   const manager = useManager();
   const { status } = meeting.analysis;
   const flags = meeting.flags;
@@ -43,6 +43,13 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
   // current scroll target. 1-based to match the UI labelling
   // ("1 of 3"); flags without an entry default to 1.
   const [activeInstanceByFlag, setActiveInstanceByFlag] = useState<Record<string, number>>({});
+
+  // Re-run analysis. The confirm-and-discard modal is shown only when
+  // the user has at least one dismissal staged (a re-run wipes them,
+  // there's no Flag.runId this week). The hook handles the request +
+  // refetch invalidation; we just decide whether to gate.
+  const rerun = useRerunAnalysis(meeting.id);
+  const [rerunModalOpen, setRerunModalOpen] = useState(false);
 
   // Streaming-reveal state
   const [visibleFlagIds, setVisibleFlagIds] = useState<Set<string>>(new Set());
@@ -108,14 +115,25 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
     );
   };
 
-  const activateFlag = (flagId: string) => {
-    setActiveFlagId(flagId);
-    setExpandedId(flagId);
-    // Default to the first occurrence on activate; cycleInstance bumps
-    // it from there.
-    setActiveInstanceByFlag((prev) => ({ ...prev, [flagId]: prev[flagId] ?? 1 }));
-    scrollSpanIntoView(flagId, activeInstanceByFlag[flagId] ?? 1);
-  };
+  const activateFlag = useCallback(
+    (flagId: string) => {
+      setActiveFlagId(flagId);
+      setExpandedId(flagId);
+      // Default to the first occurrence on activate; cycleInstance bumps
+      // it from there.
+      setActiveInstanceByFlag((prev) => ({ ...prev, [flagId]: prev[flagId] ?? 1 }));
+      scrollSpanIntoView(flagId, activeInstanceByFlag[flagId] ?? 1);
+      // Keep the URL shareable — every activate updates ?flag=<id>
+      // without pushing a new history entry. replaceState is silent
+      // wrt react-router so it doesn't trigger a re-render loop.
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('flag') !== flagId) {
+        url.searchParams.set('flag', flagId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    },
+    [activeInstanceByFlag],
+  );
 
   // Arrow nav on a multi-instance flag's card. Wraps in both directions
   // so the user can keep clicking ‹ or › without dead-end behaviour.
@@ -139,6 +157,32 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
     setExpandedId(null);
   };
 
+  // Re-run flow. Open the gate modal if anything's been dismissed,
+  // otherwise fire the mutation immediately. The failed-state Retry
+  // shares this entry point so both paths go through the same gate.
+  const requestRerun = useCallback(() => {
+    if (dismissedFlagIds.size > 0) {
+      setRerunModalOpen(true);
+      return;
+    }
+    rerun.mutate();
+  }, [dismissedFlagIds, rerun]);
+
+  const confirmRerun = useCallback(() => {
+    rerun.mutate(undefined, {
+      onSuccess: () => {
+        // The server discarded the dismissed flag rows; the UI's
+        // dismiss state should match that — otherwise an undo on a
+        // ghost id would never reappear.
+        setDismissedFlagIds(new Set());
+        setDismissReasons({});
+        setActiveFlagId(null);
+        setExpandedId(null);
+        setRerunModalOpen(false);
+      },
+    });
+  }, [rerun]);
+
   const undoDismiss = (flagId: string) => {
     setDismissedFlagIds((prev) => {
       const next = new Set(prev);
@@ -151,6 +195,27 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
       return next;
     });
   };
+
+  // ?flag=<id> deep-link: on first mount (and once per meeting load),
+  // activate the requested flag if it exists. Uses a ref so a fresh
+  // user click can't be overridden by a re-run of this effect; the
+  // ref resets per meeting so opening a different meeting honours its
+  // own ?flag= param.
+  const deepLinkDoneFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (deepLinkDoneFor.current === meeting.id) return;
+    if (flags.length === 0) return; // wait for analysis to populate
+    const target = new URLSearchParams(window.location.search).get('flag');
+    if (!target) {
+      deepLinkDoneFor.current = meeting.id;
+      return;
+    }
+    if (flagsById[target]) {
+      activateFlag(target);
+    }
+    // Either way, the deep-link has been processed for this meeting.
+    deepLinkDoneFor.current = meeting.id;
+  }, [meeting.id, flags.length, flagsById, activateFlag]);
 
   const dismissedCount = dismissedFlagIds.size;
   const visibleFlags = flags.filter((f) => visibleFlagIds.has(f.id));
@@ -194,13 +259,23 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
             </div>
           </div>
           {status === 'completed' && (
-            <button
-              type="button"
-              onClick={() => startStaggeredReveal()}
-              className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
-            >
-              ▷ Replay analysis
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => startStaggeredReveal()}
+                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
+              >
+                ▷ Replay
+              </button>
+              <button
+                type="button"
+                onClick={requestRerun}
+                disabled={rerun.isPending}
+                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {rerun.isPending ? 'Re-running…' : '↻ Re-run analysis'}
+              </button>
+            </div>
           )}
         </div>
 
@@ -214,7 +289,7 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
           totalFlags={flags.length}
           revealedFlags={visibleFlags.length}
           dismissedCount={dismissedCount}
-          onRetry={onRetry}
+          onRetry={requestRerun}
         />
 
         <div className="mt-6">
@@ -279,6 +354,14 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
           )}
         </div>
       </div>
+
+      <RerunConfirmModal
+        open={rerunModalOpen}
+        dismissedCount={dismissedCount}
+        isPending={rerun.isPending}
+        onConfirm={confirmRerun}
+        onCancel={() => setRerunModalOpen(false)}
+      />
     </div>
   );
 }

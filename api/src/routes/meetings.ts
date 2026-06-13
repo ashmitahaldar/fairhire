@@ -106,6 +106,34 @@ meetingsRouter.post('/', async (req, res) => {
   });
 });
 
+// Re-run analysis on a meeting. Used by the Flag Review re-run button
+// (and, by extension, the failed-state Retry path). Wipes existing flags
+// for a fresh run — there's no Flag.runId yet, so the UI shows a
+// confirm-and-discard modal client-side before calling this so any
+// dismissals the manager has made don't disappear silently.
+//
+// The wipe + new AnalysisRun + setImmediate happens inside one transaction
+// so a partial state (flags deleted but no new run) can't be observed.
+// FlagSpan rows cascade off Flag, so we only need to delete flags.
+meetingsRouter.post('/:id/analyse', requireOwnership('meeting'), async (req, res) => {
+  const meetingId = req.params.id;
+  const runId = await withManagerContext(req.manager.id, async (tx) => {
+    await tx.flag.deleteMany({ where: { meetingId } });
+    const run = await tx.analysisRun.create({
+      data: { meetingId, orgId: req.manager.orgId, status: 'pending' },
+    });
+    return run.id;
+  });
+
+  res.status(202).json({ runId });
+
+  setImmediate(() => {
+    runAnalysis(runId).catch((err) => {
+      console.error('[analysis] unhandled error for re-run', runId, err);
+    });
+  });
+});
+
 meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {
   const meeting = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findUnique({

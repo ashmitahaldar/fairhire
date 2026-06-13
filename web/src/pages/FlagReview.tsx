@@ -27,5 +27,5 @@ export default function FlagReview() {
     );
   }
 
-  return <FlagReviewScreen meeting={query.data} onRetry={() => void query.refetch()} />;
+  return <FlagReviewScreen meeting={query.data} />;
 }

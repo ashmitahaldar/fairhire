@@ -122,6 +122,14 @@ export function AnalysisStatus({
         className="fh-progress"
         style={{ '--progress': `${progressPct}%`, opacity: analysing ? 1 : 0.35 } as CSSProperties}
       />
+      {analysing && (
+        // Wait-state guidance per Section 4 of the Week 5 plan. The
+        // user can navigate away and come back; the meeting query
+        // resumes polling on remount via TanStack's cache.
+        <p className="font-serif italic text-sm text-ink-tertiary mt-3">
+          Safe to leave this page — we'll keep analysing in the background.
+        </p>
+      )}
     </div>
   );
 }

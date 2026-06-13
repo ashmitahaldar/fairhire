@@ -20,6 +20,8 @@ jest.mock('../lib/prisma', () => ({
     // currentRole / tenureYears / lastPromotedAt — mocked here so
     // route tests can assert on the call.
     candidate: { update: jest.fn() },
+    // Re-run analysis wipes existing flags before scheduling the new run.
+    flag: { deleteMany: jest.fn() },
     $queryRaw: jest.fn(),
   },
   systemPrisma: {
@@ -47,6 +49,7 @@ const mockMeetingFindMany = prisma.meeting.findMany as jest.Mock;
 const mockMeetingCreate = prisma.meeting.create as jest.Mock;
 const mockAnalysisRunCreate = prisma.analysisRun.create as jest.Mock;
 const mockCandidateUpdate = prisma.candidate.update as jest.Mock;
+const mockFlagDeleteMany = prisma.flag.deleteMany as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 const mockRunAnalysis = jest.mocked(runAnalysis);
 
@@ -257,5 +260,45 @@ describe('POST /meetings', () => {
     expect(res.status).toBe(400);
     expect(mockMeetingCreate).not.toHaveBeenCalled();
     await flushSetImmediate();
+  });
+});
+
+// ── Week 5 Step 5: re-run analysis endpoint ───────────────────────────────
+describe('POST /meetings/:id/analyse — re-run', () => {
+  const meetingId = '22222222-2222-2222-2222-222222222222';
+
+  it('wipes existing flags, creates a new pending run, schedules runAnalysis', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    // requireOwnership('meeting') uses systemPrisma — this meeting belongs to A
+    mockSystemMeetingFindUnique.mockResolvedValue({ managerId: managerA.id });
+    mockFlagDeleteMany.mockResolvedValue({ count: 3 });
+    mockAnalysisRunCreate.mockResolvedValue({ id: 'rerun-1' });
+
+    const res = await request(app).post(`/meetings/${meetingId}/analyse`);
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ runId: 'rerun-1' });
+    expect(mockFlagDeleteMany).toHaveBeenCalledWith({ where: { meetingId } });
+    expect(mockAnalysisRunCreate).toHaveBeenCalledWith({
+      data: { meetingId, orgId: managerA.orgId, status: 'pending' },
+    });
+
+    await flushSetImmediate();
+    expect(mockRunAnalysis).toHaveBeenCalledWith('rerun-1');
+  });
+
+  it('returns 403 for a meeting owned by another manager', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockSystemMeetingFindUnique.mockResolvedValue({ managerId: managerB.id });
+
+    const res = await request(app).post(`/meetings/${meetingId}/analyse`);
+
+    expect(res.status).toBe(403);
+    expect(mockFlagDeleteMany).not.toHaveBeenCalled();
+    expect(mockAnalysisRunCreate).not.toHaveBeenCalled();
+    await flushSetImmediate();
+    expect(mockRunAnalysis).not.toHaveBeenCalled();
   });
 });

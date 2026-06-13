@@ -182,13 +182,22 @@ export default function MeetingUpload() {
 
         {error && <p className="text-sm text-accent">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={createMeeting.isPending}
-          className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {createMeeting.isPending ? 'Analysing…' : 'Upload & analyse'}
-        </button>
+        <div className="space-y-3">
+          <button
+            type="submit"
+            disabled={createMeeting.isPending}
+            className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {createMeeting.isPending ? 'Analysing…' : 'Upload & analyse'}
+          </button>
+          {/* Pre-submit framing per Section 4 of the Week 5 plan — sets
+              user expectation that analysis takes ~a minute and is safe
+              to leave alone. Editorial tone, no bold or icon. */}
+          <p className="font-serif italic text-sm text-ink-tertiary">
+            Your debrief will be analysed for language patterns — this takes about a
+            minute, and it's safe to leave the page once it starts.
+          </p>
+        </div>
       </form>
     </div>
   );
