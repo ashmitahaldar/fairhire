@@ -112,7 +112,18 @@ meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {
       where: { id: req.params.id },
       include: {
         candidates: { include: candidateWithDemographics },
-        flags: true,
+        // Each flag carries its FlagSpan rows so the client can render
+        // every occurrence (multi-instance highlighting + Found-in-N
+        // affordance from Section 1 of the Week 5 plan). Sorted by
+        // startOffset so consumers don't have to.
+        flags: {
+          include: {
+            spans: {
+              orderBy: { startOffset: 'asc' },
+              select: { id: true, startOffset: true, endOffset: true },
+            },
+          },
+        },
         analysisRuns: { orderBy: { createdAt: 'desc' }, take: 1 },
         // Decisions recorded against this meeting (by this manager via
         // RLS). The Flag Review screen surfaces the current outcome
