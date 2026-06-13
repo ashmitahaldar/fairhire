@@ -21,15 +21,23 @@ const mockFindUnique = jest.mocked(systemPrisma.analysisRun.findUnique);
 const mockUpdateMany = jest.mocked(systemPrisma.analysisRun.updateMany);
 const mockWithCtx = jest.mocked(withManagerContext);
 
-const meeting = { id: 'm1', orgId: 'o1', managerId: 'mgr1', transcript: 'some transcript' };
+const meeting = {
+  id: 'm1',
+  orgId: 'o1',
+  managerId: 'mgr1',
+  transcript: 'some transcript',
+  meetingType: 'hiring' as const,
+};
 
 function makeTx(claimCount: number, finaliseCount: number) {
   const updateMany = jest
     .fn()
     .mockResolvedValueOnce({ count: claimCount })
     .mockResolvedValueOnce({ count: finaliseCount });
-  const createMany = jest.fn().mockResolvedValue({ count: 1 });
-  return { tx: { analysisRun: { updateMany }, flag: { createMany } }, updateMany, createMany };
+  // Week 5: persist switched from flag.createMany to flag.create per
+  // flag so the nested FlagSpan create can attach to the returned id.
+  const create = jest.fn().mockResolvedValue({ id: 'flag-stub' });
+  return { tx: { analysisRun: { updateMany }, flag: { create } }, updateMany, create };
 }
 
 describe('runAnalysis — atomic status guard', () => {
@@ -46,26 +54,26 @@ describe('runAnalysis — atomic status guard', () => {
       flags: [{ flagType: 'age_bias', excerpt: 'x', reasoning: 'y', confidenceScore: 0.9 }],
       llmOk: true,
     });
-    const { tx, createMany } = makeTx(1, 1);
+    const { tx, create } = makeTx(1, 1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
 
     await runAnalysis('run1');
 
     expect(mockAnalyse).toHaveBeenCalledTimes(1);
-    expect(createMany).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it('no-ops when the run is not pending (double-trigger / already terminal)', async () => {
     mockFindUnique.mockResolvedValue({ status: 'completed', meeting } as never);
-    const { tx, createMany } = makeTx(0, 0); // claim matches 0 rows
+    const { tx, create } = makeTx(0, 0); // claim matches 0 rows
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
 
     await runAnalysis('run1');
 
     expect(mockAnalyse).not.toHaveBeenCalled();
-    expect(createMany).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('discards its result (no flags) when another path finalised the run mid-analysis', async () => {
@@ -74,14 +82,14 @@ describe('runAnalysis — atomic status guard', () => {
       flags: [{ flagType: 'age_bias', excerpt: 'x', reasoning: 'y', confidenceScore: 0.9 }],
       llmOk: true,
     });
-    const { tx, createMany } = makeTx(1, 0); // claim wins, finalise loses
+    const { tx, create } = makeTx(1, 0); // claim wins, finalise loses
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
 
     await runAnalysis('run1');
 
     expect(mockAnalyse).toHaveBeenCalledTimes(1);
-    expect(createMany).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('marks the run failed when the initial lookup throws (regression: try now covers lookup)', async () => {

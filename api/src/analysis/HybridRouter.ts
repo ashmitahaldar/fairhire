@@ -1,3 +1,4 @@
+import type { MeetingType } from '@fairhire/shared';
 import { RulesEngine } from './RulesEngine';
 import { LLMAnalyser } from './llm/LLMAnalyser';
 import type { FlagCandidate } from './types';
@@ -50,9 +51,17 @@ export class HybridRouter {
     return this.llmAnalyser.modelVersion;
   }
 
-  async analyse(transcript: string): Promise<{ flags: FlagCandidate[]; llmOk: boolean }> {
-    const ruleFlags = this.rulesEngine.run(transcript);
-    const { flags: llmFlags, ok: llmOk } = await this.llmAnalyser.analyse(transcript);
+  // meetingType defaults to 'hiring' so the eval harness and any caller
+  // pre-dating the Week 5 split keeps working without changes.
+  async analyse(
+    transcript: string,
+    meetingType: MeetingType = 'hiring',
+  ): Promise<{ flags: FlagCandidate[]; llmOk: boolean }> {
+    const ruleFlags = this.rulesEngine.run(transcript, meetingType);
+    const { flags: llmFlags, ok: llmOk } = await this.llmAnalyser.analyse(
+      transcript,
+      meetingType,
+    );
     return { flags: deduplicate(ruleFlags, llmFlags), llmOk };
   }
 }

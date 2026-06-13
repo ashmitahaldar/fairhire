@@ -1,19 +1,11 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { createMeetingBody } from '@fairhire/shared';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
 import { runAnalysis } from '../analysis/analyseTranscript';
 
 export const meetingsRouter = Router();
-
-const createBody = z.object({
-  title: z.string().min(1),
-  transcript: z.string().trim().min(1).max(500_000),
-  transcriptFilename: z.string().min(1).max(255).optional(),
-  date: z.string().datetime(),
-  candidateIds: z.array(z.string().uuid()).min(1),
-});
 
 // Candidate rows include their 1:1 demographics; shared so the three meeting
 // queries below stay consistent.
@@ -35,6 +27,7 @@ meetingsRouter.get('/', async (req, res) => {
         title: true,
         transcriptFilename: true,
         date: true,
+        meetingType: true,
         createdAt: true,
         updatedAt: true,
         candidates: { include: candidateWithDemographics },
@@ -54,13 +47,14 @@ meetingsRouter.get('/', async (req, res) => {
 });
 
 meetingsRouter.post('/', async (req, res) => {
-  const parsed = createBody.safeParse(req.body);
+  const parsed = createMeetingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
 
-  const { title, transcript, transcriptFilename, date, candidateIds } = parsed.data;
+  const body = parsed.data;
+  const { title, transcript, transcriptFilename, date, candidateIds, meetingType } = body;
 
   const { meeting, runId } = await withManagerContext(req.manager.id, async (tx) => {
     const m = await tx.meeting.create({
@@ -69,6 +63,7 @@ meetingsRouter.post('/', async (req, res) => {
         transcript,
         transcriptFilename,
         date: new Date(date),
+        meetingType,
         managerId: req.manager.id,
         orgId: req.manager.orgId,
         candidates: {
@@ -77,6 +72,25 @@ meetingsRouter.post('/', async (req, res) => {
       },
       include: { candidates: { include: candidateWithDemographics } },
     });
+
+    // Promotion mode persists currentRole / tenureYears / lastPromotedAt
+    // onto the FIRST candidate row. Section 3 of the Week 5 plan reuses
+    // Candidate for the promotion target (one candidate per promotion
+    // meeting in practice). The upload form will enforce singleton
+    // selection on the Promotion tab; we update the first id either way
+    // so the data lands somewhere predictable if a future surface ever
+    // sends more.
+    if (body.meetingType === 'promotion') {
+      await tx.candidate.update({
+        where: { id: candidateIds[0] },
+        data: {
+          currentRole: body.currentRole,
+          tenureYears: body.tenureYears,
+          lastPromotedAt: body.lastPromotedAt ? new Date(body.lastPromotedAt) : null,
+        },
+      });
+    }
+
     const run = await tx.analysisRun.create({
       data: { meetingId: m.id, orgId: req.manager.orgId, status: 'pending' },
     });
