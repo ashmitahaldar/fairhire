@@ -111,6 +111,11 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
       confidence: f.confidenceScore,
       severityKey: sev.key,
       severityLabel: sev.label,
+      // Mirror the wire spans length — only the valid spans the renderer
+      // will actually highlight. The Found-in-N footer keys off this, so
+      // a flag with zero verbatim matches (LLM paraphrase) shows 0 and
+      // suppresses the affordance.
+      instanceCount: f.spans.filter((s) => s.endOffset > s.startOffset).length,
     };
   });
 

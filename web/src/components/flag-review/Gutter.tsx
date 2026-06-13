@@ -2,12 +2,13 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { FlagVM } from '../../lib/flagReview';
 import type { SeverityKey } from '../../lib/severity';
 import { FlagCard } from './FlagCard';
+import { ChevronDown } from '../shared/primitives';
 
-// Ported from the design drop's gutter.jsx. Two modes: Marginalia (cards
-// anchored next to their transcript span, top-down overlap resolution via DOM
-// measurement) and Queue (severity-tier-ordered list). The mockup's numeric
-// `a.id - b.id` sort is replaced with the display `index`, since real flag ids
-// are UUIDs.
+// Two modes — Marginalia (cards anchored next to their transcript
+// span, top-down overlap resolution via DOM measurement) and Queue
+// (severity-tier-ordered list). In Week 5 dismissed cards are pulled
+// out of both layouts and grouped into a collapsed footer at the
+// bottom of the gutter — see DismissedFooter.
 
 export type GutterMode = 'marginalia' | 'queue';
 
@@ -16,7 +17,7 @@ interface GutterCallbacks {
   onHover: (id: string | null) => void;
   onDismiss: (id: string, reason: string) => void;
   onUndo: (id: string) => void;
-  onApply: (id: string) => void;
+  onCycleInstance: (id: string, delta: 1 | -1) => void;
 }
 
 interface GutterProps extends GutterCallbacks {
@@ -27,6 +28,7 @@ interface GutterProps extends GutterCallbacks {
   expandedId: string | null;
   dismissedFlagIds: Set<string>;
   dismissReasons: Record<string, string>;
+  activeInstanceByFlag: Record<string, number>;
 }
 
 interface GutterHeaderProps {
@@ -70,27 +72,31 @@ export function GutterHeader({ mode, onChangeMode, visibleCount, totalCount }: G
   );
 }
 
+// Per-flag card props derived from the gutter-wide state. Pulled out
+// so the marginalia/queue/dismissed renderers stay one-liners.
+function cardPropsFor(flag: FlagVM, props: GutterProps) {
+  return {
+    flag,
+    expanded: props.expandedId === flag.id,
+    isActive: props.activeFlagId === flag.id,
+    isDismissed: props.dismissedFlagIds.has(flag.id),
+    dismissReason: props.dismissReasons[flag.id],
+    currentInstance: props.activeInstanceByFlag[flag.id] ?? 1,
+    onActivate: props.onActivate,
+    onHover: props.onHover,
+    onDismiss: props.onDismiss,
+    onUndo: props.onUndo,
+    onCycleInstance: props.onCycleInstance,
+  } as const;
+}
+
 function renderCard(flag: FlagVM, props: GutterProps) {
-  return (
-    <FlagCard
-      key={flag.id}
-      flag={flag}
-      expanded={props.expandedId === flag.id}
-      isActive={props.activeFlagId === flag.id}
-      isDismissed={props.dismissedFlagIds.has(flag.id)}
-      dismissReason={props.dismissReasons[flag.id]}
-      onActivate={props.onActivate}
-      onHover={props.onHover}
-      onDismiss={props.onDismiss}
-      onUndo={props.onUndo}
-      onApply={props.onApply}
-    />
-  );
+  return <FlagCard key={flag.id} {...cardPropsFor(flag, props)} />;
 }
 
 // ── Marginalia: anchor each card near its span; push down to resolve overlaps ─
-function MarginaliaGutter(props: GutterProps) {
-  const { flags, expandedId, dismissedFlagIds } = props;
+function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: GutterProps }) {
+  const { expandedId, dismissedFlagIds } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [positions, setPositions] = useState<Record<string, number>>({});
@@ -105,7 +111,7 @@ function MarginaliaGutter(props: GutterProps) {
     const gutterTop = containerEl.getBoundingClientRect().top + window.scrollY;
 
     const items: { id: string; idealTop: number; h: number }[] = [];
-    flags.forEach((f) => {
+    liveFlags.forEach((f) => {
       const spanEl = document.querySelector(`[data-flag-span="${f.id}"]`);
       if (!spanEl) return;
       const cardEl = cardRefs.current[f.id];
@@ -127,7 +133,7 @@ function MarginaliaGutter(props: GutterProps) {
     setPositions(resolved);
     setContainerH(Math.max(400, maxBottom + 16));
     if (items.length > 0) setIsMeasured(true);
-  }, [flags]);
+  }, [liveFlags]);
 
   useLayoutEffect(() => {
     // rAF + double rAF + fonts.ready catches the paint milestones where span
@@ -144,12 +150,12 @@ function MarginaliaGutter(props: GutterProps) {
     Object.values(cardRefs.current).forEach((el) => {
       if (el) obs.observe(el);
     });
-    flags.forEach((f) => {
+    liveFlags.forEach((f) => {
       const spanEl = document.querySelector(`[data-flag-span="${f.id}"]`);
       if (spanEl) obs.observe(spanEl);
     });
     const transcriptRoot = document
-      .querySelector(`[data-flag-span="${flags[0]?.id}"]`)
+      .querySelector(`[data-flag-span="${liveFlags[0]?.id}"]`)
       ?.closest('p')?.parentElement;
     if (transcriptRoot) obs.observe(transcriptRoot);
     obs.observe(document.body);
@@ -161,11 +167,11 @@ function MarginaliaGutter(props: GutterProps) {
       obs.disconnect();
       window.removeEventListener('resize', recompute);
     };
-  }, [recompute, expandedId, dismissedFlagIds]);
+  }, [recompute, expandedId, dismissedFlagIds, liveFlags]);
 
   return (
     <div ref={containerRef} className="relative" style={{ height: `${containerH}px` }}>
-      {flags.map((flag) => (
+      {liveFlags.map((flag) => (
         <div
           key={flag.id}
           ref={(el) => {
@@ -181,35 +187,30 @@ function MarginaliaGutter(props: GutterProps) {
   );
 }
 
-// ── Queue: severity-tier-ordered list, dismissed pushed to the bottom ─────────
+// ── Queue: severity-tier-ordered list of live flags ──────────────────────────
 const SEV_ORDER: Record<SeverityKey, number> = { high: 0, med: 1, low: 2 };
 
-function QueueGutter(props: GutterProps) {
-  const { flags, dismissedFlagIds } = props;
-  const sorted = [...flags].sort((a, b) => {
-    const da = dismissedFlagIds.has(a.id) ? 1 : 0;
-    const db = dismissedFlagIds.has(b.id) ? 1 : 0;
-    if (da !== db) return da - db;
+function QueueGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: GutterProps }) {
+  const sorted = [...liveFlags].sort((a, b) => {
     if (SEV_ORDER[a.severityKey] !== SEV_ORDER[b.severityKey]) {
       return SEV_ORDER[a.severityKey] - SEV_ORDER[b.severityKey];
     }
     return a.index - b.index;
   });
 
-  const liveCount = (key: SeverityKey) =>
-    flags.filter((f) => f.severityKey === key && !dismissedFlagIds.has(f.id)).length;
+  const tierCount = (key: SeverityKey) => liveFlags.filter((f) => f.severityKey === key).length;
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2 text-sm pb-3 border-b border-hairline">
         <span className="text-ink font-medium">
-          High <span className="text-ink-tertiary font-normal">· {liveCount('high')}</span>
+          High <span className="text-ink-tertiary font-normal">· {tierCount('high')}</span>
         </span>
         <span className="text-ink font-medium">
-          Med <span className="text-ink-tertiary font-normal">· {liveCount('med')}</span>
+          Med <span className="text-ink-tertiary font-normal">· {tierCount('med')}</span>
         </span>
         <span className="text-ink font-medium">
-          Low <span className="text-ink-tertiary font-normal">· {liveCount('low')}</span>
+          Low <span className="text-ink-tertiary font-normal">· {tierCount('low')}</span>
         </span>
       </div>
       {sorted.map((flag) => renderCard(flag, props))}
@@ -217,6 +218,62 @@ function QueueGutter(props: GutterProps) {
   );
 }
 
+// ── Dismissed footer: collapsed by default, click to expand inline ───────────
+function DismissedFooter({
+  dismissedFlags,
+  props,
+}: {
+  dismissedFlags: FlagVM[];
+  props: GutterProps;
+}) {
+  const [open, setOpen] = useState(false);
+  if (dismissedFlags.length === 0) return null;
+
+  return (
+    <div className="mt-8 pt-4 border-t border-hairline">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between text-sm text-ink-secondary hover:text-ink transition-colors duration-120 py-2"
+      >
+        <span className="font-serif italic">
+          {dismissedFlags.length} dismissed
+        </span>
+        <span
+          className={`transition-transform duration-120 ${open ? 'rotate-180' : 'rotate-0'}`}
+          aria-hidden="true"
+        >
+          <ChevronDown />
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-3 mt-3">
+          {dismissedFlags.map((flag) => renderCard(flag, props))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Gutter(props: GutterProps) {
-  return props.mode === 'queue' ? <QueueGutter {...props} /> : <MarginaliaGutter {...props} />;
+  // Single source of truth for live vs dismissed partitioning. Both
+  // layout modes consume `liveFlags`; the dismissed footer renders
+  // independently below.
+  const liveFlags = props.flags.filter((f) => !props.dismissedFlagIds.has(f.id));
+  const dismissedFlags = props.flags.filter((f) => props.dismissedFlagIds.has(f.id));
+
+  const live =
+    props.mode === 'queue' ? (
+      <QueueGutter liveFlags={liveFlags} props={props} />
+    ) : (
+      <MarginaliaGutter liveFlags={liveFlags} props={props} />
+    );
+
+  return (
+    <>
+      {live}
+      <DismissedFooter dismissedFlags={dismissedFlags} props={props} />
+    </>
+  );
 }

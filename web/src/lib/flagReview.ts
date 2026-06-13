@@ -32,6 +32,13 @@ export interface FlagVM {
   confidence: number;
   severityKey: SeverityKey;
   severityLabel: string;
+  /**
+   * Number of times this flag's excerpt appears in the transcript (i.e.
+   * FlagSpan rows on the wire). 1 for single-instance flags, ≥1 for
+   * multi-instance, 0 when the LLM produced an excerpt that wasn't a
+   * verbatim substring. Drives the "Found in N places" affordance.
+   */
+  instanceCount: number;
 }
 
 // A flagged region in the raw transcript: full-document character

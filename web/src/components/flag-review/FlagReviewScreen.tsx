@@ -39,6 +39,10 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
   const [dismissedFlagIds, setDismissedFlagIds] = useState<Set<string>>(new Set());
   const [dismissReasons, setDismissReasons] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<GutterMode>('marginalia');
+  // Multi-instance navigation: which occurrence of each flag is the
+  // current scroll target. 1-based to match the UI labelling
+  // ("1 of 3"); flags without an entry default to 1.
+  const [activeInstanceByFlag, setActiveInstanceByFlag] = useState<Record<string, number>>({});
 
   // Streaming-reveal state
   const [visibleFlagIds, setVisibleFlagIds] = useState<Set<string>>(new Set());
@@ -84,22 +88,48 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
     return startStaggeredReveal();
   }, [status, flags, startStaggeredReveal]);
 
-  const activateFlag = (flagId: string) => {
-    setActiveFlagId(flagId);
-    setExpandedId(flagId);
-    // Wait for the expand-driven layout shift, then scroll the span into view.
+  // Scroll the (instance-targeted) span into view if it's off-screen.
+  // Shared between activateFlag and cycleInstance so both code paths
+  // use the same vertical alignment heuristic.
+  const scrollSpanIntoView = (flagId: string, instance1Based: number) => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
+        const spans = document.querySelectorAll<HTMLElement>(`[data-flag-span="${flagId}"]`);
         const target =
-          document.querySelector(`[data-flag-span="${flagId}"]`) ??
-          document.querySelector(`[data-flag-card="${flagId}"]`);
+          spans[Math.max(0, instance1Based - 1)] ??
+          spans[0] ??
+          document.querySelector<HTMLElement>(`[data-flag-card="${flagId}"]`);
         if (!target) return;
         const rect = target.getBoundingClientRect();
         if (rect.top < 100 || rect.bottom > window.innerHeight - 80) {
           window.scrollTo({ top: window.scrollY + rect.top - 140, behavior: 'smooth' });
         }
-      })
+      }),
     );
+  };
+
+  const activateFlag = (flagId: string) => {
+    setActiveFlagId(flagId);
+    setExpandedId(flagId);
+    // Default to the first occurrence on activate; cycleInstance bumps
+    // it from there.
+    setActiveInstanceByFlag((prev) => ({ ...prev, [flagId]: prev[flagId] ?? 1 }));
+    scrollSpanIntoView(flagId, activeInstanceByFlag[flagId] ?? 1);
+  };
+
+  // Arrow nav on a multi-instance flag's card. Wraps in both directions
+  // so the user can keep clicking ‹ or › without dead-end behaviour.
+  const cycleInstance = (flagId: string, delta: 1 | -1) => {
+    const flag = flagsById[flagId];
+    if (!flag || flag.instanceCount <= 1) return;
+    setActiveInstanceByFlag((prev) => {
+      const cur = prev[flagId] ?? 1;
+      // Modulo-wrap on a 1-based range: subtract 1 → wrap → add 1 back.
+      const next = ((cur - 1 + delta + flag.instanceCount) % flag.instanceCount) + 1;
+      // Schedule the scroll for after the state update has applied.
+      requestAnimationFrame(() => scrollSpanIntoView(flagId, next));
+      return { ...prev, [flagId]: next };
+    });
   };
 
   const dismissFlag = (flagId: string, reason: string) => {
@@ -239,11 +269,12 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
               expandedId={expandedId}
               dismissedFlagIds={dismissedFlagIds}
               dismissReasons={dismissReasons}
+              activeInstanceByFlag={activeInstanceByFlag}
               onActivate={activateFlag}
               onHover={setHoveredFlagId}
               onDismiss={dismissFlag}
               onUndo={undoDismiss}
-              onApply={(id) => dismissFlag(id, 'Applied')}
+              onCycleInstance={cycleInstance}
             />
           )}
         </div>
