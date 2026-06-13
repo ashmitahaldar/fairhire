@@ -83,11 +83,18 @@ export interface AggregateMirrorInput {
 
 // Schema enum → editorial display label. DECISION_OUTCOME_LABELS is the
 // single source of truth shared with the Flag Review decision panel and
-// the Candidates table, so vocabularies don't drift across screens. The
-// shared map is typed Record<DecisionOutcome, MirrorDecisionOutcome>, so
-// no cast is needed here.
-const toMirrorOutcome = (o: DecisionOutcome): MirrorDecisionOutcome =>
-  DECISION_OUTCOME_LABELS[o];
+// the Candidates table, so vocabularies don't drift across screens.
+//
+// The aggregator is still hiring-only — Step 6 of the Week 5 plan
+// rewrites it to be mode-aware via DECISION_OUTCOME_LABELS_BY_MODE.
+// Until then, the promotion-only outcomes (`promoted`, `held`) can't
+// appear in this code path (no aggregator path queries promotion
+// meetings yet); we map them to 'Pending' defensively so the type
+// system remains honest about the wider DecisionOutcome.
+const toMirrorOutcome = (o: DecisionOutcome): MirrorDecisionOutcome => {
+  if (o === 'promoted' || o === 'held') return 'Pending';
+  return DECISION_OUTCOME_LABELS[o];
+};
 
 // ── Aggregator ────────────────────────────────────────────────────────────
 
@@ -242,7 +249,7 @@ type MeetingRow = {
     candidate: { name: string; roleAppliedFor: string };
   }>;
   flags: Array<{ flagType: FlagType; dismissed: boolean }>;
-  decisions: Array<{ id: string; outcome: 'hired' | 'rejected' | 'in_progress'; candidateId: string }>;
+  decisions: Array<{ id: string; outcome: DecisionOutcome; candidateId: string }>;
 };
 
 function buildSummary(meetings: MeetingRow[]): MirrorSummary {
@@ -353,7 +360,7 @@ type PipelineCandidate = {
   createdAt: Date;
   demographics: { race: Race | null } | null;
   meetings: Array<{ meetingId: string }>;
-  decisions: Array<{ outcome: 'hired' | 'rejected' | 'in_progress' }>;
+  decisions: Array<{ outcome: DecisionOutcome }>;
 };
 
 function raceSegmentKey(c: PipelineCandidate): RaceSegmentKey {

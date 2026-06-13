@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createCandidateBody,
   updateCandidateBody,
+  type DecisionOutcome,
   type DemographicsInput,
 } from '@fairhire/shared';
 import { withManagerContext } from '../lib/prisma';
@@ -42,7 +43,7 @@ interface CandidateRowFromDb {
     | (Omit<DemographicsInput, 'firstLanguage'> & { firstLanguage: string | null })
     | null;
   _count: { meetings: number };
-  decisions: Array<{ outcome: 'hired' | 'rejected' | 'in_progress' }>;
+  decisions: Array<{ outcome: DecisionOutcome }>;
   meetings: Array<{ meetingId: string }>;
 }
 

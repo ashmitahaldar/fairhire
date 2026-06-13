@@ -59,3 +59,29 @@ export const NUDGE_AVG_FLAGS_MIN_INTERVIEWS = 3;
 
 // Max nudges surfaced per /mirror response. Section 4 of the plan.
 export const NUDGE_MAX_PER_RESPONSE = 3;
+
+// ── Phase C: pipeline / demographics nudges (Week 5) ───────────────────────
+// "Represented" convention: Chinese = majority, Malay + Indian + Other =
+// represented (see web/src/components/pattern-mirror/ConversionGrid.tsx:21-27).
+// Thresholds + floors live here so the rule files in api/src/mirror/nudges.ts
+// and any UI explanation copy stay aligned. Step 7a of the Week 5 plan
+// will tune these against seed-data behaviour before they leave draft.
+
+// Minimum total candidates per group at a given pipeline stage for the
+// stage-drop-off rule to evaluate. Prevents 2-of-3 noise from triggering
+// "represented candidates drop off more sharply."
+export const NUDGE_PHASE_C_MIN_PER_GROUP = 10;
+
+// Minimum gap (percentage points) between represented and majority
+// drop-off rates at a single transition for the rule to fire.
+export const NUDGE_PHASE_C_STAGE_GAP_PP = 10;
+
+// Composition shift at hire: how much higher the hire-stage majority
+// share has to be vs the applied-stage majority share before the rule
+// fires. Surfaced as "your hires this period were N% majority vs your
+// applied pool of M%."
+export const NUDGE_PHASE_C_COMPOSITION_SHIFT_PP = 15;
+
+// Floor on the applied pool. If fewer candidates than this applied,
+// composition-share comparisons are too noisy to be informative.
+export const NUDGE_PHASE_C_MIN_APPLIED_TOTAL = 10;

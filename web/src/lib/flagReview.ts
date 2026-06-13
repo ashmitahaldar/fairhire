@@ -11,6 +11,10 @@ export const FLAG_TYPE_LABELS: Record<FlagType, string> = {
   asymmetric_concern: 'Asymmetric concern',
   hedging_language: 'Hedging language',
   age_bias: 'Age bias',
+  potential_vs_performance: 'Potential vs performance',
+  tenure_framing: 'Tenure framing',
+  peer_comparison_bias: 'Peer-comparison bias',
+  confidence_proxy: 'Confidence proxy',
 };
 
 export interface FlagVM {
