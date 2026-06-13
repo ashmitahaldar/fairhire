@@ -202,6 +202,12 @@
     transition: text-decoration-thickness 120ms ease, background-color 120ms ease;
   }
   .fh-span:hover { text-decoration-thickness: 2px; }
+  .fh-span.is-hovered:not(.is-active) {
+    /* Cross-highlight from the gutter: hovering a flag card thickens
+       its transcript span. Mirrors the Week 4 inline-style behaviour
+       now that hover state is propagated through TipTap decorations. */
+    text-decoration-thickness: 2px;
+  }
   .fh-span.is-active {
     text-decoration-thickness: 2px;
     background: var(--color-surface-active);
@@ -212,7 +218,12 @@
     text-decoration: none;
     color: var(--color-text-secondary);
   }
-  .fh-span sup {
+
+  /* Trailing superscript number after a flagged span. Rendered as a
+     widget decoration by the TipTap renderer so it lives as a sibling
+     of the .fh-span wrap rather than a descendant — hence styled by a
+     dedicated class instead of `.fh-span sup`. */
+  .fh-span-sup {
     font-family: var(--font-mono);
     font-size: 0.65em;
     color: var(--color-text-tertiary);

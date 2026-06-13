@@ -206,7 +206,8 @@ export function FlagReviewScreen({ meeting, onRetry }: FlagReviewScreenProps) {
             <span className="text-sm text-ink-tertiary tabular-nums">{meeting.wordCount} words</span>
           </div>
           <Transcript
-            paragraphs={meeting.transcript}
+            transcriptText={meeting.transcriptText}
+            flagSpans={meeting.flagSpans}
             flagsById={flagsById}
             activeFlagId={activeFlagId}
             hoveredFlagId={hoveredFlagId}

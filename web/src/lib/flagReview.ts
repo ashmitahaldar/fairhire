@@ -34,13 +34,17 @@ export interface FlagVM {
   severityLabel: string;
 }
 
-// A transcript paragraph is an ordered list of segments. A segment is either
-// plain text or a flagged span carrying the id of the flag it belongs to.
-export type TranscriptSegment =
-  | { kind: 'text'; text: string }
-  | { kind: 'flag'; text: string; flagId: string };
-
-export type TranscriptParagraph = TranscriptSegment[];
+// A flagged region in the raw transcript: full-document character
+// offsets, flagged by id. Week 5 Step 3 switched the renderer from
+// pre-segmented paragraphs to TipTap decorations driven by this flat
+// list; multi-instance is first-class (one flagId, N entries).
+export interface FlagSpanRef {
+  flagId: string;
+  /** character offset in the raw transcript */
+  start: number;
+  /** character offset in the raw transcript (exclusive) */
+  end: number;
+}
 
 export interface AnalysisVM {
   status: AnalysisStatus;
@@ -73,7 +77,18 @@ export interface MeetingVM {
   /** formatted Meeting.date */
   panelDate: string;
   wordCount: number;
-  transcript: TranscriptParagraph[];
+  /**
+   * Raw transcript text. The Transcript component splits paragraphs and
+   * builds the TipTap document from this; FlagSpan offsets reference
+   * positions in this string.
+   */
+  transcriptText: string;
+  /**
+   * Flat list of every flag occurrence in the transcript (full-doc
+   * character offsets). Multi-instance: one Flag with N occurrences
+   * contributes N entries; the renderer emits one decoration per entry.
+   */
+  flagSpans: FlagSpanRef[];
   flags: FlagVM[];
   analysis: AnalysisVM;
   /** Current decision for the primary candidate (null id = unrecorded). */
