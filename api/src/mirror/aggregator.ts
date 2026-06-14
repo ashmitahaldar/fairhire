@@ -238,9 +238,16 @@ export async function aggregateMirror(
   const recentDecisions = [...decisions].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8);
   const languageFlags = buildLanguageFlags(meetings, previousFlagCounts);
   const pipeline = buildPipeline(pipelineCandidates, windows.current);
-  // Phase D nudges fire on Phase A+B signals only this week. Pipeline-
-  // and demographic-driven nudges are deferred to Week 5 per the plan.
-  const nudges = buildNudges({ summary, languageFlags, decisions });
+  // Phase D nudges run over the aggregated signals. Pipeline + meetingType
+  // are passed in so the Phase C rules (Week 5 Step 7) can read the
+  // funnel and bail in promotion mode where the concept doesn't apply.
+  const nudges = buildNudges({
+    summary,
+    languageFlags,
+    decisions,
+    pipeline,
+    meetingType,
+  });
 
   return {
     manager: {

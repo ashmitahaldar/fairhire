@@ -3,6 +3,8 @@ import type {
   LanguageFlagRow,
   MirrorDecision,
   MirrorSummary,
+  PipelineRow,
+  RaceSegmentKey,
 } from '@fairhire/shared';
 
 // Synthetic-input unit tests for each Phase D rule. The orchestrator
@@ -24,8 +26,29 @@ function inputs(over: Partial<NudgeInputs> = {}): NudgeInputs {
     summary: baselineSummary,
     languageFlags: [],
     decisions: [],
+    pipeline: [],
+    meetingType: 'hiring',
     ...over,
   };
+}
+
+// Convenience helper for Phase C tests. Builds a PipelineRow with the
+// segments map filled out from named groups; unspecified segments
+// default to 0.
+function stage(
+  stageName: string,
+  segments: Partial<Record<RaceSegmentKey, number>>,
+): PipelineRow {
+  const full: Record<RaceSegmentKey, number> = {
+    chinese: 0,
+    malay: 0,
+    indian: 0,
+    other: 0,
+    unknown: 0,
+    ...segments,
+  };
+  const total = Object.values(full).reduce((s, n) => s + n, 0);
+  return { stage: stageName, segments: full, total };
 }
 
 function lang(
@@ -291,5 +314,177 @@ describe('orchestrator — severity sort + 3-cap', () => {
 
   it('returns an empty array when no rule fires (empty inputs)', () => {
     expect(buildNudges(inputs())).toEqual([]);
+  });
+});
+
+// ── Phase C: stage drop-off gap ────────────────────────────────────────
+describe('Rule 6 — stage drop-off gap (Phase C, hiring only)', () => {
+  it('fires when represented drops off ≥10pp more than majority', () => {
+    // Applied: 20 majority, 20 represented (both above the 10-per-group floor).
+    // Interviewed: 18 majority (10% drop), 10 represented (50% drop) →
+    // gap = 40pp, well above the 10pp threshold.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 20, malay: 10, indian: 6, other: 4 }),
+          stage('Interviewed', { chinese: 18, malay: 5, indian: 3, other: 2 }),
+          stage('Hired', { chinese: 5, malay: 1 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    const fired = out.find((n) => n.id === 'phase-c-stage-dropoff');
+    expect(fired).toBeTruthy();
+    expect(fired!.sentence).toContain('Applied and Interviewed');
+    expect(fired!.sentence).toMatch(/\d+pp gap/);
+    expect(fired!.linkTo).toBe('Demographics');
+  });
+
+  it('does not fire when either group has fewer than 10 candidates at the from-stage', () => {
+    // Represented only has 8 at Applied — below the per-group floor.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 20, malay: 4, indian: 2, other: 2 }),
+          stage('Interviewed', { chinese: 18, malay: 0 }),
+          stage('Hired', {}),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-stage-dropoff')).toBe(false);
+  });
+
+  it('does not fire when the gap is below 10pp', () => {
+    // Both groups drop ~10%, gap is near zero.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 20, malay: 10, indian: 6, other: 4 }),
+          stage('Interviewed', { chinese: 18, malay: 9, indian: 5, other: 4 }),
+          stage('Hired', {}),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-stage-dropoff')).toBe(false);
+  });
+
+  it('does not fire in promotion mode even with a textbook drop-off pattern', () => {
+    const out = buildNudges(
+      inputs({
+        meetingType: 'promotion',
+        pipeline: [
+          stage('Applied', { chinese: 20, malay: 10, indian: 6, other: 4 }),
+          stage('Interviewed', { chinese: 18, malay: 5, indian: 3, other: 2 }),
+          stage('Hired', {}),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-stage-dropoff')).toBe(false);
+  });
+
+  it('picks the transition with the widest gap when multiple qualify', () => {
+    // Applied→Interviewed: rep drops 30%, maj drops 0% → gap 30pp.
+    // Interviewed→Hired: rep drops 100%, maj drops 0% → gap 100pp.
+    // The hired transition should win (and the sentence names it).
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 20, malay: 10, indian: 6, other: 4 }),
+          stage('Interviewed', { chinese: 20, malay: 7, indian: 4, other: 3 }),
+          stage('Hired', { chinese: 20, malay: 0 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    const fired = out.find((n) => n.id === 'phase-c-stage-dropoff');
+    expect(fired).toBeTruthy();
+    expect(fired!.sentence).toContain('Interviewed and Hired');
+  });
+});
+
+// ── Phase C: composition shift at hire ─────────────────────────────────
+describe('Rule 7 — composition shift at hire (Phase C, hiring only)', () => {
+  it('fires when hire-stage majority share is >15pp above applied', () => {
+    // Applied: 50% majority (10/20). Hired: 80% majority (4/5). Shift = 30pp.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 10, malay: 6, indian: 4 }),
+          stage('Interviewed', {}),
+          stage('Hired', { chinese: 4, malay: 1 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    const fired = out.find((n) => n.id === 'phase-c-composition-shift');
+    expect(fired).toBeTruthy();
+    expect(fired!.sentence).toContain('80% majority background');
+    expect(fired!.sentence).toContain('50%');
+    expect(fired!.linkTo).toBe('Demographics');
+  });
+
+  it('excludes unknown demographics from both sides of the comparison', () => {
+    // Applied: chinese 10, represented 6, unknown 100 — only the known
+    // 16 form the denominator → applied majority share = ~63%.
+    // Hired: chinese 5, represented 1 → 83%. Shift ≈ 20pp, fires.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 10, malay: 3, indian: 3, unknown: 100 }),
+          stage('Interviewed', {}),
+          stage('Hired', { chinese: 5, malay: 1, unknown: 50 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-composition-shift')).toBe(true);
+  });
+
+  it('does not fire when the applied pool is below the floor', () => {
+    // Only 5 known applied candidates — below the min-applied-total of 10.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 3, malay: 2 }),
+          stage('Interviewed', {}),
+          stage('Hired', { chinese: 3 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-composition-shift')).toBe(false);
+  });
+
+  it('does not fire when the shift is below the threshold', () => {
+    // Applied 60%, Hired 70%, shift = 10pp < threshold 15pp.
+    const out = buildNudges(
+      inputs({
+        pipeline: [
+          stage('Applied', { chinese: 12, malay: 5, indian: 3 }),
+          stage('Interviewed', {}),
+          stage('Hired', { chinese: 7, malay: 3 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-composition-shift')).toBe(false);
+  });
+
+  it('does not fire in promotion mode', () => {
+    const out = buildNudges(
+      inputs({
+        meetingType: 'promotion',
+        pipeline: [
+          stage('Applied', { chinese: 10, malay: 6, indian: 4 }),
+          stage('Interviewed', {}),
+          stage('Hired', { chinese: 4, malay: 1 }),
+          stage('Rejected', {}),
+        ],
+      }),
+    );
+    expect(out.some((n) => n.id === 'phase-c-composition-shift')).toBe(false);
   });
 });
