@@ -18,6 +18,8 @@ function makeFlag(over: Partial<FlagVM>): FlagVM {
     severityKey: 'med',
     severityLabel: 'Med',
     instanceCount: 1,
+    dismissed: false,
+    dismissReason: null,
     ...over,
   };
 }

@@ -212,31 +212,115 @@ export function FlagCard({
 
   const showInstanceNav = flag.instanceCount > 1 && currentInstance && onCycleInstance;
 
-  // ── Dismissed: collapsed one-line strip with Undo ─────────────
-  if (isDismissed) {
+  // ── Dismissed + collapsed: two-line strip ─────────────────────────────
+  // Line 1: category + reason · Undo (right-aligned, fixed)
+  // Line 2: truncated quote
+  // The strip is clickable to expand into the full card body (so the
+  // user can re-read the original quote + reasoning); Undo stops
+  // propagation so undoing doesn't first expand the card.
+  if (isDismissed && !expanded) {
     return (
       <article
         data-flag-card={flag.id}
-        className="bg-surface-sunk border border-hairline rounded-card px-4 py-3 flex items-center justify-between gap-3"
+        onClick={() => onActivate(flag.id)}
         onMouseEnter={() => onHover(flag.id)}
         onMouseLeave={() => onHover(null)}
+        className="bg-surface-sunk border border-hairline rounded-card px-4 py-3 cursor-pointer transition-colors duration-120 hover:border-hairline-strong"
       >
-        <div className="min-w-0 flex items-center gap-3">
-          <span className="font-serif italic text-sm text-ink-tertiary">Dismissed</span>
-          <span className="font-serif italic text-base text-ink-secondary line-through truncate">
-            “{flag.span}”
-          </span>
-          {dismissReason && (
-            <span className="text-sm text-ink-tertiary whitespace-nowrap">· {dismissReason}</span>
-          )}
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <div className="min-w-0 flex items-baseline gap-2 truncate">
+            <span className="font-serif italic text-sm text-ink-tertiary shrink-0">
+              Dismissed
+            </span>
+            <span className="font-serif italic text-base text-ink-secondary truncate">
+              {flag.category}
+            </span>
+            {dismissReason && (
+              <span className="text-sm text-ink-tertiary truncate">· {dismissReason}</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUndo(flag.id);
+            }}
+            className="text-xs font-medium text-ink hover:text-accent transition-colors duration-120 whitespace-nowrap shrink-0"
+          >
+            Undo
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onUndo(flag.id)}
-          className="text-xs font-medium text-ink hover:text-accent transition-colors duration-120 whitespace-nowrap"
-        >
-          Undo
-        </button>
+        <p className="font-serif italic text-sm text-ink-tertiary line-through truncate">
+          “{flag.span}”
+        </p>
+      </article>
+    );
+  }
+
+  // ── Dismissed + expanded: full content, no Dismiss action ───────────
+  // Same body as the live expanded card so the original quote and
+  // reasoning are visible (no strikethrough on the quote — strikethrough
+  // makes it hard to read; the surface tint + footer label carry the
+  // "this is dismissed" signal). The bottom row swaps Dismiss for Undo
+  // and surfaces the recorded reason.
+  if (isDismissed && expanded) {
+    return (
+      <article
+        data-flag-card={flag.id}
+        onMouseEnter={() => onHover(flag.id)}
+        onMouseLeave={() => onHover(null)}
+        className="bg-surface-sunk border border-hairline rounded-card relative p-5"
+      >
+        <ActiveRule visible={isActive} />
+
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <h3 className="font-serif italic text-section text-ink leading-tight">
+            {flag.category}
+          </h3>
+          <SeverityBadge tier={flag.severityKey} label={flag.severityLabel} score={flag.confidence} />
+        </div>
+
+        <blockquote className="font-serif italic text-body text-ink-secondary mb-5 leading-snug">
+          “{flag.span}”
+        </blockquote>
+
+        <p className="text-sm text-ink-secondary mb-5 leading-relaxed">{flag.reasoning}</p>
+
+        {flag.suggestion && (
+          <>
+            <div className="fh-hairline mb-5" />
+            <div className="font-serif italic text-base text-ink-tertiary mb-2">Suggested</div>
+            <p className="font-serif text-body text-ink mb-5 leading-snug">“{flag.suggestion}”</p>
+          </>
+        )}
+
+        {showInstanceNav && (
+          <>
+            <div className="fh-hairline mb-3" />
+            <div className="mb-4">
+              <MultiInstanceNav
+                current={currentInstance}
+                total={flag.instanceCount}
+                onCycle={(d) => onCycleInstance(flag.id, d)}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="fh-hairline mb-4" />
+
+        <div className="min-h-[28px] flex items-center justify-between gap-3">
+          <span className="font-serif italic text-sm text-ink-tertiary truncate">
+            Dismissed{dismissReason ? ` · ${dismissReason}` : ''}
+          </span>
+          <button
+            type="button"
+            onClick={() => onUndo(flag.id)}
+            className="text-sm font-medium text-ink hover:text-accent transition-colors duration-120 whitespace-nowrap"
+          >
+            Undo
+          </button>
+        </div>
       </article>
     );
   }

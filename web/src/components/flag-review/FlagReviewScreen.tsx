@@ -4,6 +4,7 @@ import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
 import { MEETING_TYPE_LABELS } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
 import { useRerunAnalysis } from '../../lib/useAnalysisRun';
+import { useSetFlagDismissed } from '../../lib/flagsApi';
 import { DecisionPanel } from './DecisionPanel';
 import { useManager } from '../../lib/ManagerContext';
 import { InitialsAvatar } from '../shared/primitives';
@@ -37,9 +38,44 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
   const [activeFlagId, setActiveFlagId] = useState<string | null>(null);
   const [hoveredFlagId, setHoveredFlagId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [dismissedFlagIds, setDismissedFlagIds] = useState<Set<string>>(new Set());
-  const [dismissReasons, setDismissReasons] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<GutterMode>('marginalia');
+
+  // Dismissed state. Derived from the server-supplied meeting.flags
+  // (which carry Flag.dismissed + dismissReason) so a reload still
+  // shows what was dismissed; local optimistic overrides layer on top
+  // so a click takes effect immediately and survives the PATCH +
+  // refetch round-trip.
+  const setFlagDismissed = useSetFlagDismissed(meeting.id);
+  const [optimisticDismiss, setOptimisticDismiss] = useState<
+    Record<string, { dismissed: boolean; reason: string | null }>
+  >({});
+  const dismissedFlagIds = new Set<string>();
+  const dismissReasons: Record<string, string> = {};
+  for (const f of flags) {
+    const o = optimisticDismiss[f.id];
+    const dismissed = o ? o.dismissed : f.dismissed;
+    const reason = o ? o.reason : f.dismissReason;
+    if (dismissed) {
+      dismissedFlagIds.add(f.id);
+      if (reason) dismissReasons[f.id] = reason;
+    }
+  }
+  // Drop optimistic overrides once the server-truth catches up (the
+  // refetch after a successful PATCH) so we don't keep stale entries
+  // around forever.
+  useEffect(() => {
+    setOptimisticDismiss((prev) => {
+      const next: typeof prev = {};
+      for (const [id, o] of Object.entries(prev)) {
+        const f = flags.find((x) => x.id === id);
+        if (!f) continue; // flag is gone (e.g. after re-run); drop
+        if (f.dismissed === o.dismissed) continue; // server caught up; drop
+        next[id] = o;
+      }
+      return next;
+    });
+  }, [flags]);
+
   // Multi-instance navigation: which occurrence of each flag is the
   // current scroll target. 1-based to match the UI labelling
   // ("1 of 3"); flags without an entry default to 1.
@@ -152,10 +188,17 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
   };
 
   const dismissFlag = (flagId: string, reason: string) => {
-    setDismissedFlagIds((prev) => new Set(prev).add(flagId));
-    setDismissReasons((prev) => ({ ...prev, [flagId]: reason }));
+    // Optimistic: drop the override the moment the click happens so the
+    // card moves to the dismissed footer without waiting for the round-
+    // trip. The useEffect above clears the override once the server-
+    // truth catches up via the meeting-query refetch.
+    setOptimisticDismiss((prev) => ({
+      ...prev,
+      [flagId]: { dismissed: true, reason },
+    }));
     setActiveFlagId(null);
     setExpandedId(null);
+    setFlagDismissed.mutate({ flagId, dismissed: true, dismissReason: reason });
   };
 
   // Re-run flow. Open the gate modal if anything's been dismissed,
@@ -172,11 +215,10 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
   const confirmRerun = useCallback(() => {
     rerun.mutate(undefined, {
       onSuccess: () => {
-        // The server discarded the dismissed flag rows; the UI's
-        // dismiss state should match that — otherwise an undo on a
-        // ghost id would never reappear.
-        setDismissedFlagIds(new Set());
-        setDismissReasons({});
+        // The server discarded the dismissed flag rows; clear any
+        // optimistic overrides so we don't hold ghost ids after the
+        // refetch returns the fresh flag set.
+        setOptimisticDismiss({});
         setActiveFlagId(null);
         setExpandedId(null);
         setRerunModalOpen(false);
@@ -185,16 +227,11 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
   }, [rerun]);
 
   const undoDismiss = (flagId: string) => {
-    setDismissedFlagIds((prev) => {
-      const next = new Set(prev);
-      next.delete(flagId);
-      return next;
-    });
-    setDismissReasons((prev) => {
-      const next = { ...prev };
-      delete next[flagId];
-      return next;
-    });
+    setOptimisticDismiss((prev) => ({
+      ...prev,
+      [flagId]: { dismissed: false, reason: null },
+    }));
+    setFlagDismissed.mutate({ flagId, dismissed: false });
   };
 
   // ?flag=<id> deep-link: on first mount (and once per meeting load),

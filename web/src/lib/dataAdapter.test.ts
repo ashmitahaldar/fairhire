@@ -46,7 +46,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt,
             reasoning: 'r',
             confidenceScore: 0.9,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [{ id: 's1', startOffset: start, endOffset: end }],
           },
         ],
@@ -72,7 +72,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: ex,
             reasoning: 'r',
             confidenceScore: 0.88,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [
               { id: 's1', startOffset: first, endOffset: first + ex.length },
               { id: 's2', startOffset: second, endOffset: second + ex.length },
@@ -101,7 +101,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: 'ccc',
             reasoning: 'r',
             confidenceScore: 0.7,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [{ id: 's-c', startOffset: 8, endOffset: 11 }],
           },
           {
@@ -110,7 +110,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: 'aaa',
             reasoning: 'r',
             confidenceScore: 0.7,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [{ id: 's-a', startOffset: 0, endOffset: 3 }],
           },
         ],
@@ -134,7 +134,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: 'cultural fit',
             reasoning: 'r',
             confidenceScore: 0.88,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [
               { id: 'ok', startOffset: 0, endOffset: 12 },
               { id: 'bad-zero', startOffset: 5, endOffset: 5 },
@@ -162,7 +162,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: 'paraphrased text that does not appear verbatim',
             reasoning: 'r',
             confidenceScore: 0.7,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [],
           },
         ],
@@ -171,6 +171,44 @@ describe('adaptMeeting — transcript + flag spans', () => {
 
     expect(vm.flagSpans).toEqual([]);
     expect(vm.flags).toHaveLength(1); // gutter still renders
+  });
+
+  it('surfaces persisted dismissal state so the screen can seed on mount', () => {
+    const vm = adaptMeeting(
+      makeResponse({
+        transcript: 'cultural fit.',
+        flags: [
+          {
+            id: 'f-live',
+            flagType: 'hedging_language',
+            excerpt: 'cultural fit',
+            reasoning: 'r',
+            confidenceScore: 0.88,
+            suggestedAlt: null,
+            dismissed: false,
+            dismissReason: null,
+            spans: [{ id: 's1', startOffset: 0, endOffset: 12 }],
+          },
+          {
+            id: 'f-gone',
+            flagType: 'age_bias',
+            excerpt: 'stamina',
+            reasoning: 'r',
+            confidenceScore: 0.82,
+            suggestedAlt: null,
+            dismissed: true,
+            dismissReason: 'Acknowledged',
+            spans: [],
+          },
+        ],
+      }),
+    );
+    const live = vm.flags.find((f) => f.id === 'f-live')!;
+    const gone = vm.flags.find((f) => f.id === 'f-gone')!;
+    expect(live.dismissed).toBe(false);
+    expect(live.dismissReason).toBeNull();
+    expect(gone.dismissed).toBe(true);
+    expect(gone.dismissReason).toBe('Acknowledged');
   });
 
   it('uses the existing severity + label mapping (no regression from Week 4)', () => {
@@ -184,7 +222,7 @@ describe('adaptMeeting — transcript + flag spans', () => {
             excerpt: 'cultural fit',
             reasoning: 'r',
             confidenceScore: 0.88,
-            suggestedAlt: null,
+            suggestedAlt: null, dismissed: false, dismissReason: null,
             spans: [{ id: 's1', startOffset: 0, endOffset: 12 }],
           },
         ],

@@ -94,6 +94,20 @@ function renderCard(flag: FlagVM, props: GutterProps) {
   return <FlagCard key={flag.id} {...cardPropsFor(flag, props)} />;
 }
 
+// Equality on the position map. Used to short-circuit setPositions
+// when a recompute pass produces an unchanged layout (e.g. a
+// ResizeObserver firing without an actual size delta). Avoids
+// re-render churn.
+function samePositions(a: Record<string, number>, b: Record<string, number>): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const k of aKeys) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
 // ── Marginalia: anchor each card near its span; push down to resolve overlaps ─
 function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: GutterProps }) {
   const { expandedId, dismissedFlagIds } = props;
@@ -105,19 +119,37 @@ function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: Gu
 
   // Measure each span's top relative to the inner container, then lay cards out
   // top-down: each sits at max(idealTop, previousCard.bottom + 16).
+  //
+  // Card height is read via getBoundingClientRect() (sub-pixel accurate; offset-
+  // Height rounds and can lag a frame behind a content change). For a flag
+  // whose span isn't currently in the DOM (TipTap mid-update), fall back to
+  // the previously-resolved position so the card doesn't snap to 0.
   const recompute = useCallback(() => {
     const containerEl = containerRef.current;
     if (!containerEl) return;
+    // Touch offsetHeight to force a synchronous layout flush before we
+    // start measuring children — otherwise a freshly-expanded card may
+    // report its old height on the first read after a re-render.
+    void containerEl.offsetHeight;
     const gutterTop = containerEl.getBoundingClientRect().top + window.scrollY;
 
     const items: { id: string; idealTop: number; h: number }[] = [];
     liveFlags.forEach((f) => {
       const spanEl = document.querySelector(`[data-flag-span="${f.id}"]`);
-      if (!spanEl) return;
       const cardEl = cardRefs.current[f.id];
-      const spanTop = spanEl.getBoundingClientRect().top + window.scrollY - gutterTop;
-      const cardH = cardEl ? cardEl.offsetHeight : 80;
-      items.push({ id: f.id, idealTop: Math.max(0, spanTop), h: cardH });
+      const cardH = cardEl ? cardEl.getBoundingClientRect().height : 80;
+      let idealTop: number | null = null;
+      if (spanEl) {
+        idealTop = spanEl.getBoundingClientRect().top + window.scrollY - gutterTop;
+      } else {
+        // Span temporarily missing (e.g. TipTap re-applying decorations) —
+        // hold the previously-resolved position so the card stays parked
+        // rather than collapsing to 0 and overlapping its siblings.
+        const prev = positionsRef.current[f.id];
+        if (typeof prev === 'number') idealTop = prev;
+      }
+      if (idealTop === null) return;
+      items.push({ id: f.id, idealTop: Math.max(0, idealTop), h: cardH });
     });
 
     items.sort((a, b) => a.idealTop - b.idealTop);
@@ -130,14 +162,29 @@ function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: Gu
       runningBottom = top + c.h;
       maxBottom = Math.max(maxBottom, runningBottom);
     });
+
+    // Skip the state update when nothing changed so we don't churn React
+    // through a no-op render every time a ResizeObserver callback fires.
+    if (samePositions(positionsRef.current, resolved)) return;
+    positionsRef.current = resolved;
     setPositions(resolved);
     setContainerH(Math.max(400, maxBottom + 16));
     if (items.length > 0) setIsMeasured(true);
   }, [liveFlags]);
 
+  // Track the latest resolved positions outside React state so the recompute
+  // callback can read them without ballooning its dep list (and without
+  // racing the still-pending setPositions schedule).
+  const positionsRef = useRef<Record<string, number>>({});
+
   useLayoutEffect(() => {
-    // rAF + double rAF + fonts.ready catches the paint milestones where span
-    // positions are still settling (font swap is the big one).
+    // Three measurement passes catch progressively-later settlings:
+    //   * sync — the post-render layout right now (covers most expand cases)
+    //   * rAF1 — after the browser's next style/layout pass
+    //   * rAF2 — after one more frame, in case TipTap's decoration patch
+    //            ran between rAF1 and now
+    // fonts.ready and the ResizeObserver-driven path catch anything later.
+    recompute();
     let raf1 = 0;
     let raf2 = 0;
     raf1 = requestAnimationFrame(() => {
@@ -171,18 +218,28 @@ function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: Gu
 
   return (
     <div ref={containerRef} className="relative" style={{ height: `${containerH}px` }}>
-      {liveFlags.map((flag) => (
-        <div
-          key={flag.id}
-          ref={(el) => {
-            cardRefs.current[flag.id] = el;
-          }}
-          className="absolute left-0 right-0 top-0 transition-[transform,opacity] duration-200 ease-quiet will-change-transform"
-          style={{ transform: `translateY(${positions[flag.id] ?? 0}px)`, opacity: isMeasured ? 1 : 0 }}
-        >
-          {renderCard(flag, props)}
-        </div>
-      ))}
+      {liveFlags.map((flag) => {
+        // Active/expanded card sits above its neighbours so even a
+        // brief layout lag during expansion doesn't let a still-shifting
+        // sibling visually clip into its body.
+        const isExpanded = props.expandedId === flag.id;
+        return (
+          <div
+            key={flag.id}
+            ref={(el) => {
+              cardRefs.current[flag.id] = el;
+            }}
+            className="absolute left-0 right-0 top-0 transition-opacity duration-200 ease-quiet"
+            style={{
+              transform: `translateY(${positions[flag.id] ?? 0}px)`,
+              opacity: isMeasured ? 1 : 0,
+              zIndex: isExpanded ? 10 : 1,
+            }}
+          >
+            {renderCard(flag, props)}
+          </div>
+        );
+      })}
     </div>
   );
 }

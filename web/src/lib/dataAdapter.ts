@@ -23,6 +23,12 @@ interface FlagResponse {
   reasoning: string;
   confidenceScore: number;
   suggestedAlt: string | null;
+  // Dismissal state lives on the row itself (Flag.dismissed +
+  // dismissReason). Surfaced into the VM so the screen can seed its
+  // dismissed-set from the server on mount and the state persists
+  // across reloads.
+  dismissed: boolean;
+  dismissReason: string | null;
   // Server-supplied character offsets into the transcript — one entry per
   // textual occurrence (Week 5 Step 1 persists, Step 2 adopts on the wire).
   // Pre-Week-5 flags backfilled via scripts/backfill-flag-spans.ts; LLM
@@ -112,6 +118,8 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
       confidence: f.confidenceScore,
       severityKey: sev.key,
       severityLabel: sev.label,
+      dismissed: f.dismissed,
+      dismissReason: f.dismissReason,
       // Mirror the wire spans length — only the valid spans the renderer
       // will actually highlight. The Found-in-N footer keys off this, so
       // a flag with zero verbatim matches (LLM paraphrase) shows 0 and

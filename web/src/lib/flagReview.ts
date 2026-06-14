@@ -32,6 +32,11 @@ export interface FlagVM {
   confidence: number;
   severityKey: SeverityKey;
   severityLabel: string;
+  /** Server-persisted dismissal state. Seeds the screen's dismissed
+   *  set on mount; mutations write back through useSetFlagDismissed. */
+  dismissed: boolean;
+  /** Reason recorded when the flag was dismissed; null when live. */
+  dismissReason: string | null;
   /**
    * Number of times this flag's excerpt appears in the transcript (i.e.
    * FlagSpan rows on the wire). 1 for single-instance flags, ≥1 for
