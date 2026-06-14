@@ -1,4 +1,4 @@
-import type { AnalysisStatus, FlagType } from '@fairhire/shared';
+import type { AnalysisStatus, FlagType, MeetingType } from '@fairhire/shared';
 import { severityFor } from './severity';
 import {
   FLAG_TYPE_LABELS,
@@ -50,6 +50,7 @@ export interface MeetingResponse {
   title: string;
   transcript: string;
   date: string;
+  meetingType: MeetingType;
   candidates: { candidate: { id: string; name: string; roleAppliedFor: string } }[];
   flags: FlagResponse[];
   analysisRuns: AnalysisRunResponse[];
@@ -131,6 +132,7 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
   return {
     id: res.id,
     title: res.title,
+    meetingType: res.meetingType,
     candidateId: candidate?.id ?? null,
     candidateName: candidate?.name ?? 'Unknown candidate',
     candidateRole: candidate?.roleAppliedFor ?? '',

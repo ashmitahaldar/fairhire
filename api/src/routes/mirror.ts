@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { MIRROR_PERIODS } from '@fairhire/shared';
+import { MEETING_TYPES, MIRROR_PERIODS } from '@fairhire/shared';
 import { systemPrisma, withManagerContext } from '../lib/prisma';
 import { aggregateMirror } from '../mirror/aggregator';
 
@@ -16,6 +16,10 @@ const querySchema = z.object({
   // a bare GET /mirror returns a useful payload without the client having
   // to know the period taxonomy.
   period: z.enum(MIRROR_PERIODS).default('90d'),
+  // Hiring/Promotion split (Week 5 Section 3). Default to hiring so
+  // pre-Week-5 callers (and the dashboard list) keep their current
+  // behaviour; the client opts in to promotion by passing the param.
+  meetingType: z.enum(MEETING_TYPES).default('hiring'),
 });
 
 mirrorRouter.get('/', async (req, res) => {
@@ -24,7 +28,7 @@ mirrorRouter.get('/', async (req, res) => {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { period } = parsed.data;
+  const { period, meetingType } = parsed.data;
 
   // Pulls the manager's display name + department name for the header.
   // systemPrisma is fine here: it's reading the caller's own row (already
@@ -43,6 +47,7 @@ mirrorRouter.get('/', async (req, res) => {
       managerId: req.manager.id,
       manager: { name: managerInfo.name, team: managerInfo.dept.name },
       period,
+      meetingType,
     });
   });
 

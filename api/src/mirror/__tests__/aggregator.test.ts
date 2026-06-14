@@ -52,6 +52,10 @@ const baseInput = {
   managerId: 'mgr-1',
   manager: { name: 'Daniel Whittaker', team: 'Group Strategy & Sustainability' },
   period: '90d' as const,
+  // Default to hiring — the existing tests were all written against
+  // hiring meetings and the meetingType filter wasn't a concept yet.
+  // Promotion-specific assertions override this per-test.
+  meetingType: 'hiring' as const,
   now: new Date('2026-06-01T12:00:00Z'),
 };
 

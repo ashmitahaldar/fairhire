@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
+import { MEETING_TYPE_LABELS } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
 import { useRerunAnalysis } from '../../lib/useAnalysisRun';
 import { DecisionPanel } from './DecisionPanel';
@@ -251,6 +252,12 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
               </div>
             )}
             <div className="flex items-center gap-3 text-sm text-ink-secondary flex-wrap">
+              {/* Mode badge — quiet hairline chip so the reader can
+                  tell a promotion debrief apart from a hiring one
+                  without leaving the page. */}
+              <span className="font-mono text-xs uppercase tracking-meta text-ink-secondary border border-hairline rounded-input px-2 py-0.5">
+                {MEETING_TYPE_LABELS[meeting.meetingType]}
+              </span>
               <span>{meeting.title}</span>
               <span className="text-ink-tertiary">·</span>
               <span>Panel debrief · {meeting.panelDate}</span>
@@ -295,6 +302,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
         <div className="mt-6">
           <DecisionPanel
             meetingId={meeting.id}
+            meetingType={meeting.meetingType}
             candidateId={meeting.candidateId}
             decision={meeting.decision}
           />

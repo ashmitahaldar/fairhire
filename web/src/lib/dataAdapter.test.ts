@@ -12,6 +12,7 @@ function makeResponse(over: Partial<MeetingResponse> = {}): MeetingResponse {
     title: 'Panel debrief',
     transcript: '',
     date: '2026-05-01T00:00:00.000Z',
+    meetingType: 'hiring',
     candidates: [
       { candidate: { id: 'c1', name: 'Test Candidate', roleAppliedFor: 'Analyst' } },
     ],

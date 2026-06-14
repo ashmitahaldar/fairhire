@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MirrorPeriod } from '@fairhire/shared';
+import type { MeetingType, MirrorPeriod } from '@fairhire/shared';
 import { PatternMirrorScreen } from '../components/pattern-mirror/PatternMirrorScreen';
 import { usePatternMirror } from '../lib/usePatternMirror';
 
@@ -16,7 +16,8 @@ const LABEL_TO_KEY: Record<string, MirrorPeriod> = {
 
 export default function PatternMirror() {
   const [period, setPeriod] = useState<MirrorPeriod>('90d');
-  const query = usePatternMirror(period);
+  const [meetingType, setMeetingType] = useState<MeetingType>('hiring');
+  const query = usePatternMirror(period, meetingType);
 
   if (query.isLoading) {
     return (
@@ -48,6 +49,8 @@ export default function PatternMirror() {
   return (
     <PatternMirrorScreen
       data={query.data}
+      meetingType={meetingType}
+      onMeetingTypeChange={setMeetingType}
       onPeriodChange={(label) => {
         const key = LABEL_TO_KEY[label];
         if (key) setPeriod(key);

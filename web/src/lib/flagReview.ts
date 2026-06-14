@@ -1,4 +1,4 @@
-import type { AnalysisStatus, FlagType } from '@fairhire/shared';
+import type { AnalysisStatus, FlagType, MeetingType } from '@fairhire/shared';
 import type { SeverityKey } from './severity';
 
 // View-model types the flag-review components consume. The data adapter
@@ -64,8 +64,18 @@ export interface AnalysisVM {
   error: string | null;
 }
 
-/** Database DecisionOutcome — matches the Prisma enum. */
-export type DecisionOutcome = 'hired' | 'rejected' | 'in_progress';
+/**
+ * Database DecisionOutcome — matches the Prisma enum (widened in Week 5
+ * to cover both hiring and promotion modes).
+ *   hiring    → hired | rejected | in_progress
+ *   promotion → promoted | held | in_progress
+ */
+export type DecisionOutcome =
+  | 'hired'
+  | 'rejected'
+  | 'in_progress'
+  | 'promoted'
+  | 'held';
 
 /** Recorded outcome for this meeting's primary candidate, or null if none yet. */
 export interface DecisionVM {
@@ -77,6 +87,9 @@ export interface DecisionVM {
 export interface MeetingVM {
   id: string;
   title: string;
+  /** Hiring vs Promotion — drives the Decision panel layout and the
+   *  Flag Review mode badge in the header. */
+  meetingType: MeetingType;
   /** Candidate.id for the primary candidate — needed when creating a Decision. */
   candidateId: string | null;
   candidateName: string;

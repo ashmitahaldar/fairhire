@@ -7,6 +7,7 @@ import {
   type DecisionOutcome,
   type FlagType,
   type LanguageFlagRow,
+  type MeetingType,
   type MirrorData,
   type MirrorDecision,
   type MirrorDecisionOutcome,
@@ -78,6 +79,9 @@ export interface AggregateMirrorInput {
   managerId: string;
   manager: { name: string; team: string };
   period: MirrorPeriod;
+  /** Hiring or Promotion. Scopes meetings + flag counts to the matching
+   *  mode so the Mirror's two surfaces aggregate independently. */
+  meetingType: MeetingType;
   now?: Date;
 }
 
@@ -102,7 +106,7 @@ export async function aggregateMirror(
   tx: TransactionClient,
   input: AggregateMirrorInput,
 ): Promise<MirrorData> {
-  const { managerId, manager, period } = input;
+  const { managerId, manager, period, meetingType } = input;
   const now = input.now ?? new Date();
   const windows = getPeriodWindows(period, now);
 
@@ -110,9 +114,11 @@ export async function aggregateMirror(
   // decisions), flags (for type counts + dismissed totals), and decisions
   // (for the editorial rows). RLS scopes to this manager via the calling
   // withManagerContext; the explicit managerId filter is belt-and-braces.
+  // meetingType narrows the slice to the active Mirror mode.
   const meetings = await tx.meeting.findMany({
     where: {
       managerId,
+      meetingType,
       date: { gte: windows.current.start, lte: windows.current.end },
     },
     select: {
@@ -142,6 +148,7 @@ export async function aggregateMirror(
     where: {
       meeting: {
         managerId,
+        meetingType,
         date: { gte: windows.previous.start, lte: windows.previous.end },
       },
     },
@@ -159,58 +166,72 @@ export async function aggregateMirror(
   // top-of-funnel. The downstream stages (Interviewed / Hired /
   // Rejected) are scoped to this manager — they read as "the slice of
   // the org pool that flowed through my pipeline."
-  const pipelineCandidates = await tx.candidate.findMany({
-    where: {
-      deletedAt: null,
-      OR: [
-        // Applied — any candidate added to the org during the window
-        { createdAt: { gte: windows.current.start, lte: windows.current.end } },
-        // Interviewed — has a meeting in this window owned by this manager
-        {
-          meetings: {
-            some: {
-              meeting: {
+  //
+  // Promotion mode skips the query entirely: the hiring-funnel concept
+  // (Applied / Interviewed / Hired / Rejected) doesn't map to promotion
+  // decisioning, and the Promotion Mirror drops the Demographics tab
+  // that consumes it. Returning an empty pipeline array keeps the
+  // shape stable for clients.
+  const pipelineCandidates = meetingType === 'promotion'
+    ? []
+    : await tx.candidate.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          // Applied — any candidate added to the org during the window
+          { createdAt: { gte: windows.current.start, lte: windows.current.end } },
+          // Interviewed — has a hiring meeting in this window owned by this manager
+          {
+            meetings: {
+              some: {
+                meeting: {
+                  managerId,
+                  meetingType: 'hiring',
+                  date: { gte: windows.current.start, lte: windows.current.end },
+                },
+              },
+            },
+          },
+          // Hired or Rejected — has a hiring-meeting decision in this window
+          {
+            decisions: {
+              some: {
                 managerId,
-                date: { gte: windows.current.start, lte: windows.current.end },
+                meeting: {
+                  meetingType: 'hiring',
+                  date: { gte: windows.current.start, lte: windows.current.end },
+                },
               },
             },
           },
-        },
-        // Hired or Rejected — has a decision in this window from this manager
-        {
-          decisions: {
-            some: {
+        ],
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        demographics: { select: { race: true } },
+        meetings: {
+          where: {
+            meeting: {
               managerId,
-              meeting: {
-                date: { gte: windows.current.start, lte: windows.current.end },
-              },
+              meetingType: 'hiring',
+              date: { gte: windows.current.start, lte: windows.current.end },
             },
           },
+          select: { meetingId: true },
         },
-      ],
-    },
-    select: {
-      id: true,
-      createdAt: true,
-      demographics: { select: { race: true } },
-      meetings: {
-        where: {
-          meeting: {
+        decisions: {
+          where: {
             managerId,
-            date: { gte: windows.current.start, lte: windows.current.end },
+            meeting: {
+              meetingType: 'hiring',
+              date: { gte: windows.current.start, lte: windows.current.end },
+            },
           },
+          select: { outcome: true },
         },
-        select: { meetingId: true },
       },
-      decisions: {
-        where: {
-          managerId,
-          meeting: { date: { gte: windows.current.start, lte: windows.current.end } },
-        },
-        select: { outcome: true },
-      },
-    },
-  });
+    });
 
   const summary = buildSummary(meetings);
   const decisions = buildDecisions(meetings, now);
