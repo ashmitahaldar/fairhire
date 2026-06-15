@@ -1,0 +1,13 @@
+# This Vercel project deploys the web frontend only (web/dist).
+# The Express backend in api/ is hosted separately. Vercel reserves a
+# root-level api/ directory for serverless functions and auto-converts
+# every file inside it into one — which on the Hobby plan blows past the
+# 12-function limit. Excluding api/ from the upload stops that detection.
+# The web build needs only shared/ + web/; npm still links @fairhire/shared
+# into web even though api/ (a listed workspace) is absent.
+api
+
+# Server-only directories the frontend build never touches.
+prisma
+scripts
+evals
