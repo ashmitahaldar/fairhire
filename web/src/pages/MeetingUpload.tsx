@@ -1,8 +1,20 @@
 import { useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { readTranscriptFile, validateTranscript } from '../lib/upload';
+import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/shared';
+import {
+  readTranscriptFile,
+  validateTranscript,
+  validatePromotionFields,
+  type PromotionFields,
+} from '../lib/upload';
 import { useCandidates, useCreateCandidate, useCreateMeeting } from '../lib/uploadApi';
 import type { CandidateOption } from '../lib/upload';
+
+const EMPTY_PROMOTION: PromotionFields = {
+  currentRole: '',
+  tenureYears: '',
+  lastPromotedAt: '',
+};
 
 // yyyy-MM-ddThh:mm for <input type="datetime-local">, in local time.
 function toLocalDatetimeValue(d: Date): string {
@@ -15,22 +27,44 @@ export default function MeetingUpload() {
   const candidatesQuery = useCandidates();
   const createMeeting = useCreateMeeting();
 
+  const [meetingType, setMeetingType] = useState<MeetingType>('hiring');
   const [title, setTitle] = useState('');
   const [transcript, setTranscript] = useState('');
   const [filename, setFilename] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState(() => toLocalDatetimeValue(new Date()));
+  const [promotion, setPromotion] = useState<PromotionFields>(EMPTY_PROMOTION);
   const [error, setError] = useState<string | null>(null);
   const [addingCandidate, setAddingCandidate] = useState(false);
   const [candidateFilter, setCandidateFilter] = useState('');
 
+  const isPromotion = meetingType === 'promotion';
+
+  // Promotion targets a single employee (Section 3 — the route nests the
+  // promotion fields onto the first candidate). Selecting a candidate in
+  // promotion mode replaces any prior pick rather than toggling a set.
   const toggleCandidate = (id: string) => {
+    if (isPromotion) {
+      setSelected((prev) => (prev.has(id) ? new Set() : new Set([id])));
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
+
+  // Switching tabs resets mode-specific selections that no longer apply:
+  // promotion is single-select, so a multi-pick hiring selection would be
+  // ambiguous on switch. Clear it and the promotion fields for a clean slate.
+  const switchMode = (next: MeetingType) => {
+    if (next === meetingType) return;
+    setMeetingType(next);
+    setSelected(new Set());
+    setPromotion(EMPTY_PROMOTION);
+    setError(null);
   };
 
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -63,18 +97,38 @@ export default function MeetingUpload() {
       return;
     }
     if (selected.size === 0) {
-      setError('Select at least one candidate.');
+      setError(isPromotion ? 'Select the employee being considered.' : 'Select at least one candidate.');
       return;
+    }
+    if (isPromotion) {
+      const promoError = validatePromotionFields(promotion);
+      if (promoError) {
+        setError(promoError);
+        return;
+      }
     }
 
     try {
-      const meeting = await createMeeting.mutateAsync({
+      const base = {
         title: title.trim(),
         transcript,
         transcriptFilename: filename ?? undefined,
         date: new Date(when).toISOString(),
         candidateIds: [...selected],
-      });
+      };
+      const meeting = await createMeeting.mutateAsync(
+        isPromotion
+          ? {
+              ...base,
+              meetingType: 'promotion',
+              currentRole: promotion.currentRole.trim(),
+              tenureYears: Number(promotion.tenureYears),
+              lastPromotedAt: promotion.lastPromotedAt
+                ? new Date(promotion.lastPromotedAt).toISOString()
+                : undefined,
+            }
+          : { ...base, meetingType: 'hiring' },
+      );
       navigate(`/meetings/${meeting.id}`);
     } catch {
       setError('Upload failed. Please try again.');
@@ -84,9 +138,35 @@ export default function MeetingUpload() {
   return (
     <div className="max-w-prose mx-auto">
       <h1 className="font-serif text-page text-ink leading-tight mb-2">Upload debrief</h1>
-      <p className="font-serif italic text-section text-ink-secondary mb-8">
+      <p className="font-serif italic text-section text-ink-secondary mb-6">
         Paste or upload a panel transcript to analyse for bias.
       </p>
+
+      {/* Hiring | Promotion mode tabs (Section 3). The choice writes
+          meetingType onto the created meeting and branches the engine,
+          decision panel, and Mirror downstream. Tablist semantics so the
+          mode reads correctly to assistive tech. */}
+      <div role="tablist" aria-label="Debrief type" className="flex gap-1 border-b border-hairline mb-8">
+        {MEETING_TYPES.map((type) => {
+          const active = type === meetingType;
+          return (
+            <button
+              key={type}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => switchMode(type)}
+              className={`-mb-px px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-120 ${
+                active
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-ink-tertiary hover:text-ink-secondary'
+              }`}
+            >
+              {MEETING_TYPE_LABELS[type]}
+            </button>
+          );
+        })}
+      </div>
 
       <form onSubmit={onSubmit} className="space-y-8">
         <div>
@@ -116,17 +196,26 @@ export default function MeetingUpload() {
           />
         </div>
 
+        {isPromotion && (
+          <PromotionFieldset fields={promotion} onChange={setPromotion} />
+        )}
+
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <span className="fh-label">Candidates</span>
+            <span className="fh-label">{isPromotion ? 'Employee' : 'Candidates'}</span>
             <button
               type="button"
               onClick={() => setAddingCandidate((v) => !v)}
               className="text-xs font-medium text-ink-secondary hover:text-ink transition-colors duration-120"
             >
-              {addingCandidate ? 'Cancel' : '+ Add a new candidate'}
+              {addingCandidate ? 'Cancel' : isPromotion ? '+ Add a new employee' : '+ Add a new candidate'}
             </button>
           </div>
+          {isPromotion && (
+            <p className="text-xs text-ink-tertiary mb-2">
+              Select the one employee being considered for promotion.
+            </p>
+          )}
 
           {addingCandidate && (
             <AddCandidateForm
@@ -292,6 +381,67 @@ function CandidatePicker({
             })}
           </ul>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Promotion-specific fieldset ───────────────────────────────────────────
+// Rendered only on the Promotion tab. Captures the target employee's
+// current role/level, tenure, and (optionally) last promotion date. These
+// are persisted by the route onto the selected candidate row — see Section
+// 3 of the Week 5 plan. The target level itself reuses the candidate's
+// roleAppliedFor, set when the employee is added.
+
+interface PromotionFieldsetProps {
+  fields: PromotionFields;
+  onChange: (next: PromotionFields) => void;
+}
+
+function PromotionFieldset({ fields, onChange }: PromotionFieldsetProps) {
+  const set = (patch: Partial<PromotionFields>) => onChange({ ...fields, ...patch });
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+      <div>
+        <label htmlFor="currentRole" className="fh-label block mb-2">
+          Current role / level
+        </label>
+        <input
+          id="currentRole"
+          type="text"
+          value={fields.currentRole}
+          onChange={(e) => set({ currentRole: e.target.value })}
+          placeholder="e.g. Vice President"
+          className="w-full bg-surface border border-hairline rounded-input px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary outline-none focus:border-ink-secondary transition-colors duration-120"
+        />
+      </div>
+      <div>
+        <label htmlFor="tenureYears" className="fh-label block mb-2">
+          Tenure (years)
+        </label>
+        <input
+          id="tenureYears"
+          type="number"
+          min={0}
+          max={60}
+          step={1}
+          value={fields.tenureYears}
+          onChange={(e) => set({ tenureYears: e.target.value })}
+          placeholder="e.g. 6"
+          className="w-full bg-surface border border-hairline rounded-input px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary outline-none focus:border-ink-secondary transition-colors duration-120"
+        />
+      </div>
+      <div>
+        <label htmlFor="lastPromotedAt" className="fh-label block mb-2">
+          Last promoted <span className="text-ink-tertiary font-normal">(optional)</span>
+        </label>
+        <input
+          id="lastPromotedAt"
+          type="date"
+          value={fields.lastPromotedAt}
+          onChange={(e) => set({ lastPromotedAt: e.target.value })}
+          className="bg-surface border border-hairline rounded-input px-3 py-2 text-sm text-ink outline-none focus:border-ink-secondary transition-colors duration-120"
+        />
       </div>
     </div>
   );

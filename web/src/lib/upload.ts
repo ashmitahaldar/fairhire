@@ -10,12 +10,47 @@ export interface CandidateOption {
   roleAppliedFor: string;
 }
 
-export interface CreateMeetingInput {
+interface MeetingInputBase {
   title: string;
   transcript: string;
   transcriptFilename?: string;
   date: string;
   candidateIds: string[];
+}
+
+// Discriminated union mirroring the server's createMeetingBody. Hiring is
+// the pre-Week-5 shape; promotion carries the three target-employee fields
+// the route nests onto the first candidate. The form switches which branch
+// it builds based on the selected tab.
+export type CreateMeetingInput =
+  | (MeetingInputBase & { meetingType: 'hiring' })
+  | (MeetingInputBase & {
+      meetingType: 'promotion';
+      currentRole: string;
+      tenureYears: number;
+      lastPromotedAt?: string;
+    });
+
+export interface PromotionFields {
+  currentRole: string;
+  tenureYears: string; // raw form input; parsed/validated at submit
+  lastPromotedAt: string; // optional yyyy-MM-dd; '' when unset
+}
+
+/**
+ * Validates the promotion-only fields. Returns a user-facing error message,
+ * or null if acceptable. Hiring uploads skip this entirely.
+ */
+export function validatePromotionFields(fields: PromotionFields): string | null {
+  if (!fields.currentRole.trim()) return 'Add the employee’s current role or level.';
+  const years = Number(fields.tenureYears);
+  if (!fields.tenureYears.trim() || !Number.isFinite(years)) {
+    return 'Add tenure in years (a whole number).';
+  }
+  if (!Number.isInteger(years) || years < 0 || years > 60) {
+    return 'Tenure must be a whole number of years between 0 and 60.';
+  }
+  return null;
 }
 
 /** Returns a user-facing error message, or null if the transcript is acceptable. */
