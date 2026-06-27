@@ -7,12 +7,17 @@ export type Role = 'manager' | 'hr_admin';
 // Meeting.meetingType, but all five values share the same column.
 //   hiring   → hired | rejected | in_progress
 //   promotion→ promoted | held | in_progress
-export type DecisionOutcome =
-  | 'hired'
-  | 'rejected'
-  | 'in_progress'
-  | 'promoted'
-  | 'held';
+// Single source of truth so the write path (api decisions route) validates
+// against the same set the UI offers — keep this and the Prisma enum aligned.
+export const DECISION_OUTCOMES = [
+  'hired',
+  'rejected',
+  'in_progress',
+  'promoted',
+  'held',
+] as const;
+export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number];
+export const decisionOutcomeSchema = z.enum(DECISION_OUTCOMES);
 
 // Subtype for hiring-mode-only DecisionOutcome values. Used by the
 // legacy DECISION_OUTCOME_LABELS map and any surface that hasn't yet
