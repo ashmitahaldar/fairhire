@@ -19,13 +19,6 @@ export const DECISION_OUTCOMES = [
 export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number];
 export const decisionOutcomeSchema = z.enum(DECISION_OUTCOMES);
 
-// Subtype for hiring-mode-only DecisionOutcome values. Used by the
-// legacy DECISION_OUTCOME_LABELS map and any surface that hasn't yet
-// been mode-aware-rewritten. The Mirror aggregator narrows to this
-// before indexing into the label map (Step 6 makes the aggregator
-// mode-aware end-to-end).
-export type HiringDecisionOutcome = 'hired' | 'rejected' | 'in_progress';
-
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 // ── Meeting mode ────────────────────────────────────────────────────────────
