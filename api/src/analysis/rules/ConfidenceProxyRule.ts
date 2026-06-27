@@ -19,7 +19,11 @@ const PHRASES: PhraseEntry[] = [
       'Name the specific observed behaviour and the specific outcome you want to see instead — e.g. "in the partner meeting, summarised the risk position in 30 seconds" — so the feedback can be evaluated and acted on.',
   },
   {
-    pattern: /(?:more )?assertive(?:\s+in (?:the )?(?:room|meetings|sessions))?/i,
+    // Require the comparative "more assertive" deficit framing. Matching
+    // the bare word "assertive" also fires on positive usage ("she was
+    // assertive and well-prepared") — a false positive in a bias-detection
+    // tool. The "not … enough" framing is covered by a separate entry below.
+    pattern: /more assertive(?:\s+in (?:the )?(?:room|meetings|sessions))?/i,
     confidence: 0.78,
     reasoning:
       '"More assertive" is a feedback frame that lands disproportionately on women and softer-spoken candidates. Without a behavioural anchor it functions as a style preference, not a capability gap.',

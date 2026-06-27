@@ -46,9 +46,35 @@ export const DECISION_OUTCOMES_BY_MODE: Record<MeetingType, DecisionOutcome[]> =
 // Legacy hiring-only map. Kept strictly typed on HiringDecisionOutcome
 // so callers like DecisionPanel.tsx and the Mirror aggregator (both
 // hiring-only until Step 6) can index without an undefined possibility.
-// Mode-aware surfaces should use DECISION_OUTCOME_LABELS_BY_MODE instead.
+// Mode-aware surfaces should use decisionOutcomeLabel() instead.
 export const DECISION_OUTCOME_LABELS: Record<HiringDecisionOutcome, MirrorDecisionOutcome> = {
   hired: 'Hired',
   rejected: 'Declined',
   in_progress: 'Pending',
 };
+
+// Canonical label for every DecisionOutcome, mode-independent. The
+// per-mode maps above carry identical labels for each outcome — the
+// mode only restricts *which* outcomes are offered — so this is the
+// single source for "what does this outcome read as on screen."
+const CANONICAL_OUTCOME_LABELS: Record<DecisionOutcome, MirrorDecisionOutcome> = {
+  hired: 'Hired',
+  rejected: 'Declined',
+  in_progress: 'Pending',
+  promoted: 'Promoted',
+  held: 'Held',
+};
+
+// Resolve a DecisionOutcome to its display label for a given meeting
+// mode. Prefers the mode's own label; if the outcome doesn't belong to
+// that mode (legacy or mismatched data, e.g. a `hired` decision on a
+// promotion meeting), falls back to the outcome's canonical label
+// rather than silently mislabelling it. Every mode-aware surface (the
+// Mirror aggregator, the Candidates table) should use this instead of
+// indexing the hiring-only DECISION_OUTCOME_LABELS.
+export function decisionOutcomeLabel(
+  meetingType: MeetingType,
+  outcome: DecisionOutcome,
+): MirrorDecisionOutcome {
+  return DECISION_OUTCOME_LABELS_BY_MODE[meetingType][outcome] ?? CANONICAL_OUTCOME_LABELS[outcome];
+}

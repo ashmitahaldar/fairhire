@@ -117,21 +117,40 @@ meetingsRouter.post('/', async (req, res) => {
 // FlagSpan rows cascade off Flag, so we only need to delete flags.
 meetingsRouter.post('/:id/analyse', requireOwnership('meeting'), async (req, res) => {
   const meetingId = req.params.id;
-  const runId = await withManagerContext(req.manager.id, async (tx) => {
+  const { runId, started } = await withManagerContext(req.manager.id, async (tx) => {
+    // Guard against a re-run while one is already in flight (e.g. a
+    // double-click in the window between the 202 and the meeting refetch
+    // hiding the button). Each re-run creates a distinct AnalysisRun, and
+    // runAnalysis only claims its own run by id — so two concurrent runs
+    // would both analyse and both persist flags, doubling the flag set.
+    // If a pending/running run already exists, return it untouched rather
+    // than wiping flags and starting another.
+    const active = await tx.analysisRun.findFirst({
+      where: { meetingId, status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    });
+    if (active) return { runId: active.id, started: false };
+
     await tx.flag.deleteMany({ where: { meetingId } });
     const run = await tx.analysisRun.create({
       data: { meetingId, orgId: req.manager.orgId, status: 'pending' },
     });
-    return run.id;
+    return { runId: run.id, started: true };
   });
 
+  // 202 either way — "analysis is (now / already) in progress." The client
+  // refetches the meeting and picks up the in-flight run's status.
   res.status(202).json({ runId });
 
-  setImmediate(() => {
-    runAnalysis(runId).catch((err) => {
-      console.error('[analysis] unhandled error for re-run', runId, err);
+  // Only schedule when this request actually created the run; an in-flight
+  // run is already being processed by its original scheduling.
+  if (started) {
+    setImmediate(() => {
+      runAnalysis(runId).catch((err) => {
+        console.error('[analysis] unhandled error for re-run', runId, err);
+      });
     });
-  });
+  }
 });
 
 meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {

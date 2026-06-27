@@ -1,16 +1,15 @@
 import {
-  DECISION_OUTCOME_LABELS,
   DELTA_PRIOR_WINDOW_MIN_FLAGS,
   FLAG_TYPES,
   FLAG_TYPE_LABELS,
   RACE_SEGMENT_KEYS,
+  decisionOutcomeLabel,
   type DecisionOutcome,
   type FlagType,
   type LanguageFlagRow,
   type MeetingType,
   type MirrorData,
   type MirrorDecision,
-  type MirrorDecisionOutcome,
   type MirrorPeriod,
   type MirrorSummary,
   type PipelineRow,
@@ -85,20 +84,11 @@ export interface AggregateMirrorInput {
   now?: Date;
 }
 
-// Schema enum → editorial display label. DECISION_OUTCOME_LABELS is the
-// single source of truth shared with the Flag Review decision panel and
-// the Candidates table, so vocabularies don't drift across screens.
-//
-// The aggregator is still hiring-only — Step 6 of the Week 5 plan
-// rewrites it to be mode-aware via DECISION_OUTCOME_LABELS_BY_MODE.
-// Until then, the promotion-only outcomes (`promoted`, `held`) can't
-// appear in this code path (no aggregator path queries promotion
-// meetings yet); we map them to 'Pending' defensively so the type
-// system remains honest about the wider DecisionOutcome.
-const toMirrorOutcome = (o: DecisionOutcome): MirrorDecisionOutcome => {
-  if (o === 'promoted' || o === 'held') return 'Pending';
-  return DECISION_OUTCOME_LABELS[o];
-};
+// Schema enum → editorial display label, resolved per meeting mode via
+// the shared decisionOutcomeLabel(). Single source of truth shared with
+// the Flag Review decision panel and the Candidates table, so
+// vocabularies don't drift across screens. Promotion meetings surface
+// `promoted`/`held` correctly; hiring meetings surface `hired`/`rejected`.
 
 // ── Aggregator ────────────────────────────────────────────────────────────
 
@@ -234,7 +224,7 @@ export async function aggregateMirror(
     });
 
   const summary = buildSummary(meetings);
-  const decisions = buildDecisions(meetings, now);
+  const decisions = buildDecisions(meetings, now, meetingType);
   const recentDecisions = [...decisions].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8);
   const languageFlags = buildLanguageFlags(meetings, previousFlagCounts);
   const pipeline = buildPipeline(pipelineCandidates, windows.current);
@@ -442,7 +432,11 @@ function buildPipeline(
 
 // ── Decisions list ────────────────────────────────────────────────────────
 
-function buildDecisions(meetings: MeetingRow[], now: Date): MirrorDecision[] {
+function buildDecisions(
+  meetings: MeetingRow[],
+  now: Date,
+  meetingType: MeetingType,
+): MirrorDecision[] {
   const out: MirrorDecision[] = [];
   for (const m of meetings) {
     // Lookup table so each decision can resolve to the right candidate
@@ -460,7 +454,7 @@ function buildDecisions(meetings: MeetingRow[], now: Date): MirrorDecision[] {
         surname,
         role: cand.roleAppliedFor,
         flags: flagsCount,
-        outcome: toMirrorOutcome(d.outcome),
+        outcome: decisionOutcomeLabel(meetingType, d.outcome),
         daysAgo: daysBetween(m.date, now),
       });
     }

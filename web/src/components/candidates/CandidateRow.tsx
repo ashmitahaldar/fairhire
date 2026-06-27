@@ -1,5 +1,5 @@
 import type { CandidateListItem } from '../../lib/candidatesApi';
-import { DECISION_OUTCOME_LABELS, type Gender, type Race } from '@fairhire/shared';
+import { decisionOutcomeLabel, type Gender, type Race } from '@fairhire/shared';
 
 // One row of the Candidates table. Edit/delete buttons are disabled when
 // canModify is false (the caller hasn't interviewed this candidate, per
@@ -63,7 +63,12 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-sm">
         {candidate.lastDecisionOutcome ? (
-          <span className="text-ink">{DECISION_OUTCOME_LABELS[candidate.lastDecisionOutcome]}</span>
+          <span className="text-ink">
+            {decisionOutcomeLabel(
+              candidate.lastDecisionMeetingType ?? 'hiring',
+              candidate.lastDecisionOutcome,
+            )}
+          </span>
         ) : (
           <span className="text-ink-tertiary italic">—</span>
         )}

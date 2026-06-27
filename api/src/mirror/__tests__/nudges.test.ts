@@ -206,6 +206,24 @@ describe('Rule 4 — decisions skewing', () => {
     expect(n!.sentence).toContain('Declined');
   });
 
+  it('fires on promotion outcomes (Promoted/Held), not just hiring labels', () => {
+    // Regression: the rule used to filter on the literal 'Hired'/'Declined'
+    // labels, so a skewed promotion slate never triggered it.
+    const decisions: MirrorDecision[] = [
+      dec('Promoted', 0),
+      dec('Promoted', 1),
+      dec('Promoted', 2),
+      dec('Promoted', 3),
+      dec('Held', 4),
+      dec('Pending', 5), // excluded from final count
+    ];
+    const out = buildNudges(inputs({ meetingType: 'promotion', decisions }));
+    const n = out.find((x) => x.id === 'decisions-skewing');
+    expect(n).toBeTruthy();
+    expect(n!.sentence).toContain('80%');
+    expect(n!.sentence).toContain('Promoted');
+  });
+
   it('does not fire below the 70% skew threshold', () => {
     const decisions: MirrorDecision[] = [
       dec('Hired', 0),

@@ -128,9 +128,11 @@ const highDismissalRate: Rule = ({ summary }) => {
 // would conflate "I lean toward declining" with "I haven't decided." The
 // rule speaks to calibration of *closed* decisions only.
 const decisionsSkewing: Rule = ({ decisions }) => {
-  const final = decisions.filter(
-    (d) => d.outcome === 'Hired' || d.outcome === 'Declined',
-  );
+  // "Final" = any closed outcome. `Pending` (in_progress) is the only
+  // non-final label in either mode, so excluding it captures Hired /
+  // Declined for hiring and Promoted / Held for promotion without
+  // hard-coding the per-mode vocabulary.
+  const final = decisions.filter((d) => d.outcome !== 'Pending');
   if (final.length < NUDGE_DECISION_SKEW_MIN_TOTAL) return null;
 
   const counts: Record<string, number> = {};

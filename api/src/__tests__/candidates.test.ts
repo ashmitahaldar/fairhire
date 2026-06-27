@@ -47,7 +47,8 @@ function rowFromDb(overrides: Partial<{
   createdAt: Date;
   demographics: unknown;
   meetingCount: number;
-  lastOutcome: 'hired' | 'rejected' | 'in_progress' | null;
+  lastOutcome: 'hired' | 'rejected' | 'in_progress' | 'promoted' | 'held' | null;
+  lastMeetingType: 'hiring' | 'promotion';
   ownedByCaller: boolean;
 }> = {}) {
   const {
@@ -58,6 +59,7 @@ function rowFromDb(overrides: Partial<{
     demographics = null,
     meetingCount = 0,
     lastOutcome = null,
+    lastMeetingType = 'hiring',
     ownedByCaller = false,
   } = overrides;
   return {
@@ -67,7 +69,11 @@ function rowFromDb(overrides: Partial<{
     createdAt,
     demographics,
     _count: { meetings: meetingCount },
-    decisions: lastOutcome ? [{ outcome: lastOutcome }] : [],
+    // Mirrors the route's decisions select: outcome + the parent meeting's
+    // mode (so promotion outcomes can be labelled correctly client-side).
+    decisions: lastOutcome
+      ? [{ outcome: lastOutcome, meeting: { meetingType: lastMeetingType } }]
+      : [],
     meetings: ownedByCaller ? [{ meetingId: 'm1' }] : [],
   };
 }
@@ -115,11 +121,34 @@ describe('GET /candidates', () => {
       lastDecisionOutcome: 'hired',
       canModify: true,
     });
+    expect(res.body[0]).toMatchObject({ lastDecisionMeetingType: 'hiring' });
     expect(res.body[1]).toMatchObject({
       id: 'c2',
       canModify: false,
       lastDecisionOutcome: null,
+      lastDecisionMeetingType: null,
       meetingCount: 0,
+    });
+  });
+
+  it('surfaces the meeting mode for a promotion decision so it labels correctly', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockCandidateFindMany.mockResolvedValue([
+      rowFromDb({
+        id: 'c1',
+        lastOutcome: 'promoted',
+        lastMeetingType: 'promotion',
+        ownedByCaller: true,
+      }),
+    ]);
+
+    const res = await request(app).get('/candidates');
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({
+      lastDecisionOutcome: 'promoted',
+      lastDecisionMeetingType: 'promotion',
     });
 
     // The list is scoped to the manager's org via the RLS session variable

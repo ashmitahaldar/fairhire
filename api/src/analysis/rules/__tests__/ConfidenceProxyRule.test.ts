@@ -40,6 +40,14 @@ describe('ConfidenceProxyRule', () => {
     expect(rule.match('NEEDS MORE GRAVITAS.')).toHaveLength(1);
   });
 
+  it('does not flag the bare word "assertive" used positively', () => {
+    // Regression: the pattern used to match "assertive" anywhere, firing on
+    // praise. Only the "more assertive" / "not assertive enough" deficit
+    // framings should flag.
+    expect(rule.match('She was assertive and well-prepared in the pitch.')).toEqual([]);
+    expect(rule.match('Handled the negotiation assertively and closed it.')).toEqual([]);
+  });
+
   it('returns no flags for behaviourally anchored feedback', () => {
     expect(
       rule.match(

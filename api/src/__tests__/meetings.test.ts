@@ -15,7 +15,7 @@ jest.mock('../lib/prisma', () => ({
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    analysisRun: { create: jest.fn() },
+    analysisRun: { create: jest.fn(), findFirst: jest.fn() },
     // Promotion meetings nest-update the first candidate row with
     // currentRole / tenureYears / lastPromotedAt — mocked here so
     // route tests can assert on the call.
@@ -48,6 +48,7 @@ const mockSystemMeetingFindUnique = systemPrisma.meeting.findUnique as jest.Mock
 const mockMeetingFindMany = prisma.meeting.findMany as jest.Mock;
 const mockMeetingCreate = prisma.meeting.create as jest.Mock;
 const mockAnalysisRunCreate = prisma.analysisRun.create as jest.Mock;
+const mockAnalysisRunFindFirst = prisma.analysisRun.findFirst as jest.Mock;
 const mockCandidateUpdate = prisma.candidate.update as jest.Mock;
 const mockFlagDeleteMany = prisma.flag.deleteMany as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
@@ -272,6 +273,7 @@ describe('POST /meetings/:id/analyse — re-run', () => {
     mockSystemManagerFindUnique.mockResolvedValue(managerA);
     // requireOwnership('meeting') uses systemPrisma — this meeting belongs to A
     mockSystemMeetingFindUnique.mockResolvedValue({ managerId: managerA.id });
+    mockAnalysisRunFindFirst.mockResolvedValue(null); // no run in flight
     mockFlagDeleteMany.mockResolvedValue({ count: 3 });
     mockAnalysisRunCreate.mockResolvedValue({ id: 'rerun-1' });
 
@@ -286,6 +288,23 @@ describe('POST /meetings/:id/analyse — re-run', () => {
 
     await flushSetImmediate();
     expect(mockRunAnalysis).toHaveBeenCalledWith('rerun-1');
+  });
+
+  it('does not start a second run (or wipe flags) when one is already in flight', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockSystemMeetingFindUnique.mockResolvedValue({ managerId: managerA.id });
+    // A pending/running run already exists — the guard returns it untouched.
+    mockAnalysisRunFindFirst.mockResolvedValue({ id: 'inflight-run' });
+
+    const res = await request(app).post(`/meetings/${meetingId}/analyse`);
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ runId: 'inflight-run' });
+    expect(mockFlagDeleteMany).not.toHaveBeenCalled();
+    expect(mockAnalysisRunCreate).not.toHaveBeenCalled();
+    await flushSetImmediate();
+    expect(mockRunAnalysis).not.toHaveBeenCalled();
   });
 
   it('returns 403 for a meeting owned by another manager', async () => {

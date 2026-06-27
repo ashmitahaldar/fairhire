@@ -14,7 +14,11 @@ type MeetingFixture = {
     candidate: { name: string; roleAppliedFor: string };
   }>;
   flags: Array<{ flagType: string; dismissed: boolean }>;
-  decisions: Array<{ id: string; outcome: 'hired' | 'rejected' | 'in_progress'; candidateId: string }>;
+  decisions: Array<{
+    id: string;
+    outcome: 'hired' | 'rejected' | 'in_progress' | 'promoted' | 'held';
+    candidateId: string;
+  }>;
 };
 
 type PreviousFlagCount = { flagType: string; _count: { _all: number } };
@@ -273,6 +277,34 @@ describe('aggregateMirror — decisions mapping', () => {
 
     const d2 = data.decisions.find((d) => d.id === 'd2');
     expect(d2?.outcome).toBe('Pending');
+  });
+
+  it('maps promotion-mode outcomes to Promoted / Held (not Pending)', async () => {
+    // Regression: the aggregator used to collapse promoted/held → Pending
+    // because it assumed no promotion meetings reached this path. Once the
+    // Mirror became mode-aware, that mislabelled every promotion decision.
+    const { tx } = makeTx([
+      {
+        id: 'm1',
+        date: new Date('2026-05-25T00:00:00Z'),
+        candidates: [
+          { candidateId: 'c1', candidate: { name: 'Ada Lim', roleAppliedFor: 'VP' } },
+          { candidateId: 'c2', candidate: { name: 'Ben Ng', roleAppliedFor: 'VP' } },
+          { candidateId: 'c3', candidate: { name: 'Cai Wei', roleAppliedFor: 'VP' } },
+        ],
+        flags: [],
+        decisions: [
+          { id: 'd1', outcome: 'promoted', candidateId: 'c1' },
+          { id: 'd2', outcome: 'held', candidateId: 'c2' },
+          { id: 'd3', outcome: 'in_progress', candidateId: 'c3' },
+        ],
+      },
+    ]);
+
+    const data = await aggregateMirror(tx, { ...baseInput, meetingType: 'promotion' });
+    expect(data.decisions.find((d) => d.id === 'd1')?.outcome).toBe('Promoted');
+    expect(data.decisions.find((d) => d.id === 'd2')?.outcome).toBe('Held');
+    expect(data.decisions.find((d) => d.id === 'd3')?.outcome).toBe('Pending');
   });
 
   it('maps rejected → Declined', async () => {
