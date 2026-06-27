@@ -99,6 +99,7 @@ describe('POST /internal/analysis/:runId/results — idempotency guard', () => {
 
 describe('POST /internal/analysis/:runId/results — atomic claim (race)', () => {
   const SECRET = 'test-internal-secret';
+  const TRANSCRIPT = 'Intro line. Not sure about the cultural fit. Closing line.';
   const validFlag = {
     flagType: 'hedging_language',
     excerpt: 'Not sure about the cultural fit.',
@@ -114,20 +115,21 @@ describe('POST /internal/analysis/:runId/results — atomic claim (race)', () =>
     mockFindUnique.mockReset();
     mockWithCtx.mockReset();
     // Run looks non-terminal at lookup time so the fast path is passed and the
-    // transactional conditional claim becomes the deciding guard.
+    // transactional conditional claim becomes the deciding guard. transcript is
+    // needed because the route now computes FlagSpan offsets from it.
     mockFindUnique.mockResolvedValue({
       status: 'running',
       meetingId: 'meeting-1',
-      meeting: { managerId: 'mgr-1', orgId: 'org-1' },
+      meeting: { managerId: 'mgr-1', orgId: 'org-1', transcript: TRANSCRIPT },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
   });
 
-  it('writes flags when the conditional claim wins (count = 1)', async () => {
-    const createMany = jest.fn().mockResolvedValue({ count: 1 });
+  it('writes the flag AND its FlagSpan rows when the conditional claim wins', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'flag-1' });
     const tx = {
       analysisRun: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      flag: { createMany },
+      flag: { create },
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
@@ -139,14 +141,42 @@ describe('POST /internal/analysis/:runId/results — atomic claim (race)', () =>
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true, flagsWritten: 1 });
-    expect(createMany).toHaveBeenCalledTimes(1);
+    // Regression: the route used to write via createMany, which can't nest
+    // relations, so flags landed with ZERO FlagSpan rows and were invisible
+    // in the Week 5 TipTap marginalia gutter. The verbatim excerpt must now
+    // produce a span at its transcript offset.
+    expect(create).toHaveBeenCalledTimes(1);
+    const start = TRANSCRIPT.indexOf(validFlag.excerpt);
+    expect(create.mock.calls[0][0].data.spans).toEqual({
+      create: [{ startOffset: start, endOffset: start + validFlag.excerpt.length }],
+    });
+  });
+
+  it('persists a flag with zero spans when the excerpt is not verbatim', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'flag-1' });
+    const tx = {
+      analysisRun: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      flag: { create },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
+
+    const res = await request(app)
+      .post('/internal/analysis/run-1/results')
+      .set('x-internal-secret', SECRET)
+      .send({ flags: [{ ...validFlag, excerpt: 'a paraphrase that is not in the transcript' }] });
+
+    expect(res.status).toBe(200);
+    // No verbatim match → no spans. The gutter falls back to a card-only
+    // display for these (see Gutter marginalia), but the flag is still saved.
+    expect(create.mock.calls[0][0].data.spans).toEqual({ create: [] });
   });
 
   it('returns 409 and writes NO flags when a concurrent caller already claimed it (count = 0)', async () => {
-    const createMany = jest.fn();
+    const create = jest.fn();
     const tx = {
       analysisRun: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
-      flag: { createMany },
+      flag: { create },
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockWithCtx.mockImplementation(async (_id: string, cb: any) => cb(tx));
@@ -158,6 +188,6 @@ describe('POST /internal/analysis/:runId/results — atomic claim (race)', () =>
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: 'AnalysisRun already finalised' });
-    expect(createMany).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 });

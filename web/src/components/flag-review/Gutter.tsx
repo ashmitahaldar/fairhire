@@ -133,34 +133,57 @@ function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: Gu
     void containerEl.offsetHeight;
     const gutterTop = containerEl.getBoundingClientRect().top + window.scrollY;
 
-    const items: { id: string; idealTop: number; h: number }[] = [];
+    // Flags with at least one persisted span anchor to their transcript
+    // position. Flags with none (a paraphrased excerpt the engine couldn't
+    // match verbatim, or a pre-FlagSpan row that was never backfilled) have
+    // nothing to anchor to — stack them below the anchored block as a
+    // gutter-only fallback instead of dropping them, which left the card at
+    // opacity 0 and made the whole gutter look empty.
+    const anchored: { id: string; idealTop: number; h: number }[] = [];
+    const unanchored: { id: string; h: number }[] = [];
     liveFlags.forEach((f) => {
-      const spanEl = document.querySelector(`[data-flag-span="${f.id}"]`);
       const cardEl = cardRefs.current[f.id];
       const cardH = cardEl ? cardEl.getBoundingClientRect().height : 80;
+      if (f.instanceCount === 0) {
+        unanchored.push({ id: f.id, h: cardH });
+        return;
+      }
+      const spanEl = document.querySelector(`[data-flag-span="${f.id}"]`);
       let idealTop: number | null = null;
       if (spanEl) {
         idealTop = spanEl.getBoundingClientRect().top + window.scrollY - gutterTop;
       } else {
         // Span temporarily missing (e.g. TipTap re-applying decorations) —
         // hold the previously-resolved position so the card stays parked
-        // rather than collapsing to 0 and overlapping its siblings.
+        // rather than collapsing to 0 and overlapping its siblings. Before
+        // the first measurement there's no prior position; skip so the card
+        // fades in already-placed rather than flashing at the top.
         const prev = positionsRef.current[f.id];
         if (typeof prev === 'number') idealTop = prev;
       }
       if (idealTop === null) return;
-      items.push({ id: f.id, idealTop: Math.max(0, idealTop), h: cardH });
+      anchored.push({ id: f.id, idealTop: Math.max(0, idealTop), h: cardH });
     });
 
-    items.sort((a, b) => a.idealTop - b.idealTop);
+    anchored.sort((a, b) => a.idealTop - b.idealTop);
     let runningBottom = -16;
     let maxBottom = 0;
     const resolved: Record<string, number> = {};
-    items.forEach((c) => {
+    anchored.forEach((c) => {
       const top = Math.max(c.idealTop, runningBottom + 16);
       resolved[c.id] = top;
       runningBottom = top + c.h;
       maxBottom = Math.max(maxBottom, runningBottom);
+    });
+
+    // Park unanchored cards in a stack below the anchored block — or from the
+    // top when nothing is anchored (e.g. a meeting whose flags are all
+    // paraphrased). liveFlags is already in document order, so the stack is too.
+    let cur = anchored.length > 0 ? maxBottom + 16 : 0;
+    unanchored.forEach((c) => {
+      resolved[c.id] = cur;
+      cur += c.h + 16;
+      maxBottom = Math.max(maxBottom, cur);
     });
 
     // Skip the state update when nothing changed so we don't churn React
@@ -169,7 +192,10 @@ function MarginaliaGutter({ liveFlags, props }: { liveFlags: FlagVM[]; props: Gu
     positionsRef.current = resolved;
     setPositions(resolved);
     setContainerH(Math.max(400, maxBottom + 16));
-    if (items.length > 0) setIsMeasured(true);
+    // Reveal once at least one card is placed — anchored (measured) or an
+    // unanchored fallback. Without the unanchored clause an all-paraphrased
+    // meeting keeps every card invisible at opacity 0.
+    if (anchored.length > 0 || unanchored.length > 0) setIsMeasured(true);
   }, [liveFlags]);
 
   // Track the latest resolved positions outside React state so the recompute

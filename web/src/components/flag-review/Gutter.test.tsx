@@ -3,6 +3,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Gutter } from './Gutter';
 import type { FlagVM } from '../../lib/flagReview';
 
+// jsdom has no ResizeObserver; marginalia's layout effect constructs one to
+// re-measure on card/span resize. A no-op stub lets the marginalia path run.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+
 afterEach(cleanup);
 
 function makeFlag(over: Partial<FlagVM>): FlagVM {
@@ -87,6 +96,33 @@ describe('Gutter — dismissed footer grouping', () => {
     expect(screen.getByText(/dismissed span 1/i)).toBeTruthy();
     // The reason rendered next to the dismissed strip.
     expect(screen.getByText(/Acknowledged/i)).toBeTruthy();
+  });
+
+  it('reveals span-less flags in marginalia as a gutter-only fallback', () => {
+    // A flag whose excerpt isn't a verbatim transcript match has zero spans
+    // (instanceCount 0), so it can't anchor to the transcript. Pre-fix the
+    // marginalia layout dropped these from measurement, leaving isMeasured
+    // false and every card stuck at opacity 0 — an empty-looking gutter even
+    // though the flags existed. They must now render visibly.
+    const flags = [
+      makeFlag({ id: 'a', span: 'paraphrased flag one', instanceCount: 0 }),
+      makeFlag({ id: 'b', span: 'paraphrased flag two', instanceCount: 0 }),
+    ];
+    const { container } = render(
+      <Gutter {...baseProps} mode="marginalia" flags={flags} dismissedFlagIds={new Set()} />,
+    );
+
+    expect(screen.getByText(/paraphrased flag one/i)).toBeTruthy();
+    expect(screen.getByText(/paraphrased flag two/i)).toBeTruthy();
+
+    // The card wrappers fade in only once isMeasured flips true; assert
+    // they're at full opacity. The marginalia container is the outermost
+    // div.relative (FlagCard also uses .relative, nested deeper); its direct
+    // children are the per-flag wrappers carrying the opacity style.
+    const marginaliaRoot = container.querySelector<HTMLElement>('div.relative');
+    const wrappers = Array.from(marginaliaRoot?.children ?? []) as HTMLElement[];
+    expect(wrappers.length).toBe(2);
+    wrappers.forEach((w) => expect(w.style.opacity).toBe('1'));
   });
 
   it('does not include dismissed cards in the live queue list', () => {

@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { systemPrisma, withManagerContext } from '../lib/prisma';
 import { FlagCandidateSchema } from '../analysis/types';
+import { persistFlagWithSpans } from '../analysis/analyseTranscript';
 
 export const internalRouter = Router();
 
@@ -45,7 +46,9 @@ internalRouter.post('/analysis/:runId/results', async (req, res) => {
     select: {
       status: true,
       meetingId: true,
-      meeting: { select: { managerId: true, orgId: true } },
+      // transcript needed to compute FlagSpan offsets when we persist the
+      // posted flags — the TipTap renderer reads spans, not excerpts.
+      meeting: { select: { managerId: true, orgId: true, transcript: true } },
     },
   });
 
@@ -84,18 +87,14 @@ internalRouter.post('/analysis/:runId/results', async (req, res) => {
 
       if (claim.count === 0) throw new RunAlreadyFinalised();
 
-      if (flags.length > 0) {
-        await tx.flag.createMany({
-          data: flags.map((f) => ({
-            flagType: f.flagType,
-            excerpt: f.excerpt,
-            reasoning: f.reasoning,
-            confidenceScore: f.confidenceScore,
-            suggestedAlt: f.suggestedAlt ?? null,
-            meetingId: run.meetingId,
-            orgId,
-          })),
-        });
+      // Per-flag create (not createMany) so each flag's FlagSpan rows are
+      // written in the same nested insert. createMany can't nest relations,
+      // so the previous version persisted flags with zero spans — which the
+      // Week 5 TipTap renderer can't anchor, leaving them invisible in the
+      // marginalia gutter. Funnel through the same helper the in-process
+      // pipeline uses so both paths stay in lock-step.
+      for (const f of flags) {
+        await persistFlagWithSpans(tx, f, run.meeting.transcript, run.meetingId, orgId);
       }
     });
   } catch (err) {

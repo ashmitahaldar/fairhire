@@ -32,7 +32,11 @@ function findExcerptOffsets(transcript: string, excerpt: string): Array<[number,
 // later). LLM excerpts that aren't verbatim in the transcript
 // produce a flag with zero spans — the gutter still renders, the
 // transcript highlight just falls back to nothing for that flag.
-async function persistFlagWithSpans(
+//
+// Exported so the /internal results endpoint writes spans the same
+// way this in-process path does — createMany can't nest the span
+// rows, so both write paths must funnel through here or they drift.
+export async function persistFlagWithSpans(
   tx: TransactionClient,
   candidate: FlagCandidate,
   transcript: string,
