@@ -114,6 +114,50 @@ describe('GET /mirror', () => {
     expect(mockMeetingFindMany).not.toHaveBeenCalled();
   });
 
+  // ── Week 5 Step 6: meetingType filter ────────────────────────────────
+  it('defaults to meetingType=hiring and scopes the meeting query accordingly', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    const res = await request(app).get('/mirror');
+    expect(res.status).toBe(200);
+    // The aggregator's first call is the meeting findMany. The where
+    // clause should narrow to hiring meetings by default.
+    expect(mockMeetingFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ meetingType: 'hiring' }),
+      }),
+    );
+  });
+
+  it('passes meetingType=promotion through to the query and skips pipelineCandidates', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    const res = await request(app).get('/mirror?meetingType=promotion');
+    expect(res.status).toBe(200);
+    expect(mockMeetingFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ meetingType: 'promotion' }),
+      }),
+    );
+    expect(mockFlagGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          meeting: expect.objectContaining({ meetingType: 'promotion' }),
+        }),
+      }),
+    );
+    // Promotion mode skips the pipelineCandidates query (the funnel
+    // concept doesn't apply); the aggregator inlines a [] for the
+    // candidate list, so every pipeline stage row ends up with total 0.
+    expect(mockCandidateFindMany).not.toHaveBeenCalled();
+    expect(res.body.pipeline.every((row: { total: number }) => row.total === 0)).toBe(true);
+  });
+
+  it('returns 400 for an unknown meetingType value', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    const res = await request(app).get('/mirror?meetingType=offboarding');
+    expect(res.status).toBe(400);
+    expect(mockMeetingFindMany).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when unauthenticated', async () => {
     mockGetAuth.mockReturnValue({ userId: null });
     const res = await request(app).get('/mirror');

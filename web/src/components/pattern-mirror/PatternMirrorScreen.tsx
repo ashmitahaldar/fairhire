@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/shared';
 import type { MirrorData } from '../../lib/mirrorData';
 import { Section } from './Section';
 import { NudgeCard } from './NudgeCard';
@@ -10,11 +11,19 @@ import { TimelineChart } from './charts/TimelineChart';
 import { StackedBarChart } from './charts/StackedBarChart';
 import { LollipopChart } from './charts/LollipopChart';
 
-const TABS = ['Overview', 'Decisions', 'Language', 'Demographics'] as const;
-type Tab = (typeof TABS)[number];
+// Hiring shows all four tabs. Promotion drops Demographics — the
+// pipeline-funnel concept doesn't apply to promotion decisioning, and
+// the aggregator returns an empty pipeline in that mode anyway.
+const HIRING_TABS = ['Overview', 'Decisions', 'Language', 'Demographics'] as const;
+const PROMOTION_TABS = ['Overview', 'Decisions', 'Language'] as const;
+type Tab = (typeof HIRING_TABS)[number];
 
 interface PatternMirrorScreenProps {
   data: MirrorData;
+  // The active mode. Optional with a hiring default so mock-data
+  // previews (no wiring) keep rendering the original 4-tab view.
+  meetingType?: MeetingType;
+  onMeetingTypeChange?: (mt: MeetingType) => void;
   // When provided the period selector becomes controlled — the wrapper
   // converts label → MirrorPeriod key, refetches, and the new data.period
   // re-flows through this prop. When omitted (mock-data preview), clicks
@@ -22,27 +31,47 @@ interface PatternMirrorScreenProps {
   onPeriodChange?: (label: string) => void;
 }
 
-export function PatternMirrorScreen({ data, onPeriodChange }: PatternMirrorScreenProps) {
+export function PatternMirrorScreen({
+  data,
+  meetingType = 'hiring',
+  onMeetingTypeChange,
+  onPeriodChange,
+}: PatternMirrorScreenProps) {
+  const tabs: readonly Tab[] = meetingType === 'promotion' ? PROMOTION_TABS : HIRING_TABS;
   const [tab, setTab] = useState<Tab>('Overview');
 
+  // Switching mode can knock the active tab out of the available set
+  // (Demographics → Promotion). Snap back to Overview when that happens
+  // so the user isn't stranded on a non-existent tab.
+  useEffect(() => {
+    if (!tabs.includes(tab)) setTab('Overview');
+  }, [tabs, tab]);
+
   // Nudge "See in {tab} ›" link handler. nudge.linkTo carries a tab name
-  // (e.g. 'Language', 'Decisions') — switch to it when valid, no-op when
-  // the value isn't a known tab so a typo doesn't crash the click.
+  // (e.g. 'Language', 'Decisions') — switch to it when valid AND the tab
+  // exists in the current mode, no-op otherwise.
   const seeInstances = (linkTo: string | undefined) => {
     if (!linkTo) return;
-    if ((TABS as readonly string[]).includes(linkTo)) {
+    if ((tabs as readonly string[]).includes(linkTo)) {
       setTab(linkTo as Tab);
     }
   };
 
   return (
-    <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${tab}`}>
-      <MirrorHeader data={data} period={data.period} onChangePeriod={onPeriodChange ?? (() => {})} />
-      <TabBar active={tab} onChange={setTab} />
+    <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${meetingType} · ${tab}`}>
+      <MirrorHeader
+        data={data}
+        period={data.period}
+        meetingType={meetingType}
+        onChangeMeetingType={onMeetingTypeChange}
+        onChangePeriod={onPeriodChange ?? (() => {})}
+      />
+      <TabBar tabs={tabs} active={tab} onChange={setTab} />
       <div className="pt-10 pb-32">
         {tab === 'Overview' && (
           <OverviewTab
             data={data}
+            meetingType={meetingType}
             onOpenAllDecisions={() => setTab('Decisions')}
             onSeeInstances={seeInstances}
           />
@@ -60,10 +89,14 @@ export function PatternMirrorScreen({ data, onPeriodChange }: PatternMirrorScree
 function MirrorHeader({
   data,
   period,
+  meetingType,
+  onChangeMeetingType,
   onChangePeriod,
 }: {
   data: MirrorData;
   period: string;
+  meetingType: MeetingType;
+  onChangeMeetingType?: (mt: MeetingType) => void;
   onChangePeriod: (p: string) => void;
 }) {
   const { manager, summary, periodOptions } = data;
@@ -75,11 +108,16 @@ function MirrorHeader({
           <h1 className="font-serif text-page text-ink leading-tight mb-3">{manager.name}</h1>
           <div className="font-serif italic text-section text-ink-secondary">{manager.team}</div>
         </div>
-        <TimeRangeSelector
-          options={periodOptions}
-          value={period}
-          onChange={onChangePeriod}
-        />
+        <div className="flex flex-col items-end gap-3">
+          {onChangeMeetingType && (
+            <ModeToggle value={meetingType} onChange={onChangeMeetingType} />
+          )}
+          <TimeRangeSelector
+            options={periodOptions}
+            value={period}
+            onChange={onChangePeriod}
+          />
+        </div>
       </div>
 
       <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty]">
@@ -99,13 +137,58 @@ function Stat({ children }: { children: ReactNode }) {
   return <span className="font-mono text-base tabular-nums">{children}</span>;
 }
 
+// Hiring | Promotion segmented toggle. Same visual language as the
+// gutter's Marginalia / Queue switch so the page reads as one design
+// system without inventing new chrome.
+function ModeToggle({
+  value,
+  onChange,
+}: {
+  value: MeetingType;
+  onChange: (mt: MeetingType) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Mirror mode"
+      className="flex items-center text-sm border border-hairline rounded-input"
+    >
+      {MEETING_TYPES.map((mt, i) => {
+        const active = value === mt;
+        return (
+          <button
+            key={mt}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(mt)}
+            className={`px-3 py-1.5 transition-colors duration-120 ${
+              active ? 'bg-ink text-ink-inverse' : 'text-ink-secondary hover:text-ink'
+            } ${i > 0 ? 'border-l border-hairline' : ''}`}
+          >
+            {MEETING_TYPE_LABELS[mt]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Tab bar ────────────────────────────────────────────────────────────────
 
-function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+function TabBar({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: readonly Tab[];
+  active: Tab;
+  onChange: (t: Tab) => void;
+}) {
   return (
     <div className="border-b border-hairline">
       <div className="flex items-end gap-8">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const isActive = active === t;
           return (
             <button
@@ -138,32 +221,40 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 
 function OverviewTab({
   data,
+  meetingType,
   onOpenAllDecisions,
   onSeeInstances,
 }: {
   data: MirrorData;
+  meetingType: MeetingType;
   onOpenAllDecisions: () => void;
   onSeeInstances: (linkTo: string | undefined) => void;
 }) {
   const visibleNudges = data.nudges.slice(0, 3);
+  const showPipeline = meetingType === 'hiring';
+  const interviewsNoun = meetingType === 'promotion' ? 'discussions' : 'interviews';
   return (
     <>
       <Section
         title="Decision timeline"
-        caption={`${data.decisions.length} interviews across 90 days · tick height encodes flags raised`}
+        caption={`${data.decisions.length} ${interviewsNoun} across 90 days · tick height encodes flags raised`}
         anchor="timeline"
       >
         <TimelineChart decisions={data.decisions} />
       </Section>
 
-      <div className="grid grid-cols-[1.05fr_0.95fr] gap-16 mb-16">
-        <Section
-          title="Pipeline composition"
-          caption="Distribution by represented background, by stage"
-          anchor="pipeline"
-        >
-          <StackedBarChart data={data.pipeline} totalLabel="Total candidates" />
-        </Section>
+      <div
+        className={`${showPipeline ? 'grid grid-cols-[1.05fr_0.95fr] gap-16' : ''} mb-16`}
+      >
+        {showPipeline && (
+          <Section
+            title="Pipeline composition"
+            caption="Distribution by represented background, by stage"
+            anchor="pipeline"
+          >
+            <StackedBarChart data={data.pipeline} totalLabel="Total candidates" />
+          </Section>
+        )}
         <Section
           title="Top language flags"
           caption="Category count vs previous 90 days"

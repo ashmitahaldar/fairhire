@@ -2,7 +2,9 @@ import { useAuth } from '@clerk/clerk-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateCandidateInput,
+  DecisionOutcome,
   DemographicsInput,
+  MeetingType,
   UpdateCandidateInput,
 } from '@fairhire/shared';
 import { apiFetch } from './api';
@@ -25,7 +27,12 @@ export interface CandidateListItem {
   createdAt: string;
   demographics: DemographicsInput | null;
   meetingCount: number;
-  lastDecisionOutcome: 'hired' | 'rejected' | 'in_progress' | null;
+  // Widened in Week 5: a candidate's most recent decision can be a
+  // promotion outcome (promoted/held), not just the hiring trio.
+  lastDecisionOutcome: DecisionOutcome | null;
+  // Mode of the meeting that decision was recorded against — drives the
+  // mode-aware outcome label. Null when there's no decision yet.
+  lastDecisionMeetingType: MeetingType | null;
   canModify: boolean;
 }
 

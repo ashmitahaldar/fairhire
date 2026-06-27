@@ -1,14 +1,20 @@
-import type { AnalysisStatus, FlagType } from '@fairhire/shared';
+import type { AnalysisStatus, FlagType, MeetingType } from '@fairhire/shared';
 import { severityFor } from './severity';
 import {
   FLAG_TYPE_LABELS,
   type DecisionOutcome,
+  type FlagSpanRef,
   type FlagVM,
   type MeetingVM,
-  type TranscriptParagraph,
 } from './flagReview';
 
 // ── Raw GET /meetings/:id response (only the fields we consume) ──────────────
+
+interface FlagSpanResponse {
+  id: string;
+  startOffset: number;
+  endOffset: number;
+}
 
 interface FlagResponse {
   id: string;
@@ -17,6 +23,18 @@ interface FlagResponse {
   reasoning: string;
   confidenceScore: number;
   suggestedAlt: string | null;
+  // Dismissal state lives on the row itself (Flag.dismissed +
+  // dismissReason). Surfaced into the VM so the screen can seed its
+  // dismissed-set from the server on mount and the state persists
+  // across reloads.
+  dismissed: boolean;
+  dismissReason: string | null;
+  // Server-supplied character offsets into the transcript — one entry per
+  // textual occurrence (Week 5 Step 1 persists, Step 2 adopts on the wire).
+  // Pre-Week-5 flags backfilled via scripts/backfill-flag-spans.ts; LLM
+  // excerpts that weren't verbatim substrings come through with an empty
+  // array and fall back to gutter-only display.
+  spans: FlagSpanResponse[];
 }
 
 interface AnalysisRunResponse {
@@ -38,71 +56,11 @@ export interface MeetingResponse {
   title: string;
   transcript: string;
   date: string;
+  meetingType: MeetingType;
   candidates: { candidate: { id: string; name: string; roleAppliedFor: string } }[];
   flags: FlagResponse[];
   analysisRuns: AnalysisRunResponse[];
   decisions: DecisionResponse[];
-}
-
-// ── Transcript segmentation ──────────────────────────────────────────────────
-// Split the raw transcript into paragraphs and locate each flag's excerpt as a
-// span. Exact-substring match; a flag whose excerpt isn't found simply gets no
-// highlight (it still appears in the gutter). Each flag is highlighted at most
-// once — in the first paragraph it's found in.
-
-function splitParagraphs(transcript: string): string[] {
-  const byBlankLine = transcript
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (byBlankLine.length > 1) return byBlankLine;
-  return transcript
-    .split('\n')
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
-interface SpanMatch {
-  start: number;
-  len: number;
-  flagId: string;
-}
-
-function segmentParagraph(text: string, flags: FlagResponse[]): TranscriptParagraph {
-  const matches: SpanMatch[] = flags
-    .map((f) => ({ start: text.indexOf(f.excerpt), len: f.excerpt.length, flagId: f.id }))
-    .filter((m) => m.start !== -1 && m.len > 0)
-    .sort((a, b) => a.start - b.start);
-
-  // Drop overlaps, keeping the earliest match.
-  const kept: SpanMatch[] = [];
-  let lastEnd = -1;
-  for (const m of matches) {
-    if (m.start >= lastEnd) {
-      kept.push(m);
-      lastEnd = m.start + m.len;
-    }
-  }
-
-  const segments: TranscriptParagraph = [];
-  let cursor = 0;
-  for (const m of kept) {
-    if (m.start > cursor) segments.push({ kind: 'text', text: text.slice(cursor, m.start) });
-    segments.push({ kind: 'flag', text: text.slice(m.start, m.start + m.len), flagId: m.flagId });
-    cursor = m.start + m.len;
-  }
-  if (cursor < text.length) segments.push({ kind: 'text', text: text.slice(cursor) });
-  return segments;
-}
-
-function segmentTranscript(transcript: string, flags: FlagResponse[]): TranscriptParagraph[] {
-  const used = new Set<string>();
-  return splitParagraphs(transcript).map((para) => {
-    const available = flags.filter((f) => !used.has(f.id));
-    const segs = segmentParagraph(para, available);
-    for (const s of segs) if (s.kind === 'flag') used.add(s.flagId);
-    return segs;
-  });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -124,6 +82,26 @@ function formatDuration(startedAt: string | null, completedAt: string | null): s
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+// Flatten every flag's spans into one document-level list. Filter out
+// inverted or zero-length spans defensively — the engine shouldn't emit
+// them, but a future ingestion path could, and an inverted decoration
+// would crash the editor.
+function flattenSpans(flags: FlagResponse[]): FlagSpanRef[] {
+  const out: FlagSpanRef[] = [];
+  for (const f of flags) {
+    for (const s of f.spans) {
+      if (s.endOffset > s.startOffset) {
+        out.push({ flagId: f.id, start: s.startOffset, end: s.endOffset });
+      }
+    }
+  }
+  // Stable order by start offset so the renderer's decoration set is
+  // deterministic per render and any selector that targets the "first"
+  // occurrence (scroll-into-view) picks the earliest.
+  out.sort((a, b) => a.start - b.start);
+  return out;
+}
+
 // ── Adapter ──────────────────────────────────────────────────────────────────
 
 export function adaptMeeting(res: MeetingResponse): MeetingVM {
@@ -140,6 +118,13 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
       confidence: f.confidenceScore,
       severityKey: sev.key,
       severityLabel: sev.label,
+      dismissed: f.dismissed,
+      dismissReason: f.dismissReason,
+      // Mirror the wire spans length — only the valid spans the renderer
+      // will actually highlight. The Found-in-N footer keys off this, so
+      // a flag with zero verbatim matches (LLM paraphrase) shows 0 and
+      // suppresses the affordance.
+      instanceCount: f.spans.filter((s) => s.endOffset > s.startOffset).length,
     };
   });
 
@@ -155,12 +140,14 @@ export function adaptMeeting(res: MeetingResponse): MeetingVM {
   return {
     id: res.id,
     title: res.title,
+    meetingType: res.meetingType,
     candidateId: candidate?.id ?? null,
     candidateName: candidate?.name ?? 'Unknown candidate',
     candidateRole: candidate?.roleAppliedFor ?? '',
     panelDate: formatDate(res.date),
     wordCount: wordCount(res.transcript),
-    transcript: segmentTranscript(res.transcript, res.flags),
+    transcriptText: res.transcript,
+    flagSpans: flattenSpans(res.flags),
     flags,
     analysis: {
       status: run?.status ?? 'pending',

@@ -56,12 +56,17 @@ export function RecentDecisionsTable({ decisions, showRoleCol = true }: RecentDe
   );
 }
 
-// Typography-only outcome — no pill, no chip. Hired gets the accent treatment;
-// pending sits in italic secondary; declined drops to tertiary.
+// Typography-only outcome — no pill, no chip. Hired/Promoted gets the
+// accent treatment; pending sits in italic secondary; declined/held
+// drops to tertiary. Promoted/Held entries cover the Week 5 promotion
+// mode; Step 6 makes the table mode-aware so only the relevant trio
+// appears per Mirror view.
 const OUTCOME_CLASS: Record<DecisionOutcome, string> = {
   Hired: 'text-accent font-medium',
   Declined: 'text-ink-tertiary',
   Pending: 'text-ink-secondary italic',
+  Promoted: 'text-accent font-medium',
+  Held: 'text-ink-tertiary',
 };
 
 function OutcomeBadge({ outcome }: { outcome: DecisionOutcome }) {

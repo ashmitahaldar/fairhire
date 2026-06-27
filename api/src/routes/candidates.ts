@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   createCandidateBody,
   updateCandidateBody,
+  type DecisionOutcome,
   type DemographicsInput,
+  type MeetingType,
 } from '@fairhire/shared';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
@@ -42,11 +44,12 @@ interface CandidateRowFromDb {
     | (Omit<DemographicsInput, 'firstLanguage'> & { firstLanguage: string | null })
     | null;
   _count: { meetings: number };
-  decisions: Array<{ outcome: 'hired' | 'rejected' | 'in_progress' }>;
+  decisions: Array<{ outcome: DecisionOutcome; meeting: { meetingType: MeetingType } }>;
   meetings: Array<{ meetingId: string }>;
 }
 
 function toWireCandidate(row: CandidateRowFromDb) {
+  const lastDecision = row.decisions[0];
   return {
     id: row.id,
     name: row.name,
@@ -54,7 +57,11 @@ function toWireCandidate(row: CandidateRowFromDb) {
     createdAt: row.createdAt,
     demographics: row.demographics,
     meetingCount: row._count.meetings,
-    lastDecisionOutcome: row.decisions[0]?.outcome ?? null,
+    lastDecisionOutcome: lastDecision?.outcome ?? null,
+    // Mode of the meeting the last decision was recorded against, so the
+    // client can label promotion outcomes (promoted/held) correctly
+    // instead of falling through a hiring-only label map.
+    lastDecisionMeetingType: lastDecision?.meeting.meetingType ?? null,
     canModify: row.meetings.length > 0,
   };
 }
@@ -80,7 +87,7 @@ candidatesRouter.get('/', async (req, res) => {
         decisions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { outcome: true },
+          select: { outcome: true, meeting: { select: { meetingType: true } } },
         },
         // meetings here is the MeetingCandidate join; presence of any row
         // owned by the caller's manager id is what drives canModify.
@@ -132,7 +139,7 @@ candidatesRouter.post('/', async (req, res) => {
         decisions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { outcome: true },
+          select: { outcome: true, meeting: { select: { meetingType: true } } },
         },
         meetings: {
           where: { meeting: { managerId: req.manager.id } },
@@ -189,7 +196,7 @@ candidatesRouter.patch('/:id', requireOwnership('candidate'), async (req, res) =
         decisions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { outcome: true },
+          select: { outcome: true, meeting: { select: { meetingType: true } } },
         },
         meetings: {
           where: { meeting: { managerId: req.manager.id } },

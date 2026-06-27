@@ -19,6 +19,13 @@ enum DecisionOutcome {
   hired
   rejected
   in_progress
+  promoted
+  held
+}
+
+enum MeetingType {
+  hiring
+  promotion
 }
 
 enum AnalysisStatus {
@@ -34,6 +41,10 @@ enum FlagType {
   asymmetric_concern
   hedging_language
   age_bias
+  potential_vs_performance
+  tenure_framing
+  peer_comparison_bias
+  confidence_proxy
 }
 
 enum NationalityStatus {
@@ -129,6 +140,15 @@ model Candidate {
   // without orphaning analysis history. NULL = active.
   deletedAt      DateTime? @map("deleted_at")
 
+  // Promotion-mode fields. Reused Candidate row for both hiring and
+  // promotion (Section 3 of the Week 5 plan): for promotion uploads the
+  // employee is a Candidate with roleAppliedFor = target level/role, and
+  // these three fields capture their current state. Null for hiring
+  // candidates.
+  currentRole    String?   @map("current_role")
+  tenureYears    Int?      @map("tenure_years")
+  lastPromotedAt DateTime? @map("last_promoted_at")
+
   org          Organisation           @relation(fields: [orgId], references: [id])
   meetings     MeetingCandidate[]
   decisions    Decision[]
@@ -176,15 +196,19 @@ model CandidateDemographics {
 }
 
 model Meeting {
-  id                 String   @id @default(uuid())
-  orgId              String   @map("org_id")
-  managerId          String   @map("manager_id")
+  id                 String      @id @default(uuid())
+  orgId              String      @map("org_id")
+  managerId          String      @map("manager_id")
   title              String
   transcript         String
-  transcriptFilename String?  @map("transcript_filename")
+  transcriptFilename String?     @map("transcript_filename")
   date               DateTime
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  // Mode flag — drives engine prompt branching, rule selection, and the
+  // Decision Panel + Mirror UI splits. Existing rows backfilled to
+  // 'hiring' (the only mode that existed pre-Week 5).
+  meetingType        MeetingType @default(hiring) @map("meeting_type")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
   org          Organisation       @relation(fields: [orgId], references: [id])
   manager      Manager            @relation(fields: [managerId], references: [id])
@@ -253,10 +277,28 @@ model Flag {
   org                Organisation @relation(fields: [orgId], references: [id])
   meeting            Meeting      @relation(fields: [meetingId], references: [id])
   dismissedByManager Manager?     @relation("DismissedBy", fields: [dismissedBy], references: [id])
+  spans              FlagSpan[]
 
   @@index([meetingId])
   @@index([orgId])
   @@map("flags")
+}
+
+// One row per (Flag, occurrence-in-transcript). Carved out of Flag so the
+// engine can record every textual hit instead of relying on the client
+// to indexOf at render time — a single Flag with N occurrences becomes
+// N FlagSpan rows. UI uses these as TipTap decoration ranges and the
+// Found-in-N affordance.
+model FlagSpan {
+  id          String @id @default(uuid())
+  flagId      String @map("flag_id")
+  startOffset Int    @map("start_offset")
+  endOffset   Int    @map("end_offset")
+
+  flag Flag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@index([flagId])
+  @@map("flag_spans")
 }
 
 model AnalysisRun {

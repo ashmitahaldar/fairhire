@@ -1,5 +1,6 @@
-import { systemPrisma, withManagerContext } from '../lib/prisma';
+import { systemPrisma, withManagerContext, type TransactionClient } from '../lib/prisma';
 import { HybridRouter } from './HybridRouter';
+import type { FlagCandidate } from './types';
 
 const router = new HybridRouter();
 
@@ -7,6 +8,59 @@ const router = new HybridRouter();
 // /internal endpoint) finalised the run first — rolls back so this
 // execution's flags are not written on top of theirs.
 class RunFinalisedElsewhere extends Error {}
+
+// Returns every textual occurrence of `excerpt` inside `transcript`,
+// stepping forward by 1 from each hit so overlapping matches are not
+// missed (matchAll on a literal string only returns first). FlagSpan
+// rows for the Week 5 TipTap renderer come from here.
+function findExcerptOffsets(transcript: string, excerpt: string): Array<[number, number]> {
+  if (!excerpt) return [];
+  const hits: Array<[number, number]> = [];
+  let from = 0;
+  while (from <= transcript.length) {
+    const idx = transcript.indexOf(excerpt, from);
+    if (idx === -1) break;
+    hits.push([idx, idx + excerpt.length]);
+    from = idx + 1;
+  }
+  return hits;
+}
+
+// Persists one Flag + its FlagSpan occurrences in the active
+// transaction. Returns the created flag id (callers don't need it
+// today, but it keeps the helper composable for the eval pipeline
+// later). LLM excerpts that aren't verbatim in the transcript
+// produce a flag with zero spans — the gutter still renders, the
+// transcript highlight just falls back to nothing for that flag.
+//
+// Exported so the /internal results endpoint writes spans the same
+// way this in-process path does — createMany can't nest the span
+// rows, so both write paths must funnel through here or they drift.
+export async function persistFlagWithSpans(
+  tx: TransactionClient,
+  candidate: FlagCandidate,
+  transcript: string,
+  meetingId: string,
+  orgId: string,
+): Promise<string> {
+  const spans = findExcerptOffsets(transcript, candidate.excerpt);
+  const flag = await tx.flag.create({
+    data: {
+      flagType: candidate.flagType,
+      excerpt: candidate.excerpt,
+      reasoning: candidate.reasoning,
+      confidenceScore: candidate.confidenceScore,
+      suggestedAlt: candidate.suggestedAlt ?? null,
+      meetingId,
+      orgId,
+      spans: {
+        create: spans.map(([startOffset, endOffset]) => ({ startOffset, endOffset })),
+      },
+    },
+    select: { id: true },
+  });
+  return flag.id;
+}
 
 export async function runAnalysis(runId: string): Promise<void> {
   // Wrap the entire body — a throw at any step (lookup, claim, analyse,
@@ -24,7 +78,13 @@ export async function runAnalysis(runId: string): Promise<void> {
       select: {
         status: true,
         meeting: {
-          select: { id: true, orgId: true, managerId: true, transcript: true },
+          select: {
+            id: true,
+            orgId: true,
+            managerId: true,
+            transcript: true,
+            meetingType: true,
+          },
         },
       },
     });
@@ -34,7 +94,7 @@ export async function runAnalysis(runId: string): Promise<void> {
       return;
     }
 
-    const { id: meetingId, orgId, managerId, transcript } = run.meeting;
+    const { id: meetingId, orgId, managerId, transcript, meetingType } = run.meeting;
 
     // Atomic claim: only a pending run may be picked up. If a concurrent
     // execution (retry, duplicate scheduling, deploy restart, or the /internal
@@ -51,7 +111,7 @@ export async function runAnalysis(runId: string): Promise<void> {
       return;
     }
 
-    const { flags, llmOk } = await router.analyse(transcript);
+    const { flags, llmOk } = await router.analyse(transcript, meetingType);
 
     // The LLM layer degrading is non-fatal — rule flags are still useful — but
     // it must not pass silently. Persist a warning on the (completed) run so
@@ -76,18 +136,18 @@ export async function runAnalysis(runId: string): Promise<void> {
 
       if (finalise.count === 0) throw new RunFinalisedElsewhere();
 
-      if (flags.length > 0) {
-        await tx.flag.createMany({
-          data: flags.map((f) => ({
-            flagType: f.flagType,
-            excerpt: f.excerpt,
-            reasoning: f.reasoning,
-            confidenceScore: f.confidenceScore,
-            suggestedAlt: f.suggestedAlt ?? null,
-            meetingId,
-            orgId,
-          })),
-        });
+      // Persist each flag + its FlagSpan occurrences. Step 3 of the
+      // Week 5 plan switches the transcript renderer to TipTap which
+      // reads spans as decoration ranges; LLM excerpts that aren't
+      // verbatim in the transcript produce zero spans and fall back
+      // to gutter-only display.
+      //
+      // Per-flag insert (vs createMany) because the spans nested-create
+      // needs the parent flag id — keeps the write atomic per flag.
+      // Analysis is background-scheduled, so the extra round-trips don't
+      // affect any user-facing latency.
+      for (const f of flags) {
+        await persistFlagWithSpans(tx, f, transcript, meetingId, orgId);
       }
     });
 

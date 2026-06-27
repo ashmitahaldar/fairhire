@@ -2,9 +2,37 @@ import { z } from 'zod';
 
 export type Role = 'manager' | 'hr_admin';
 
-export type DecisionOutcome = 'hired' | 'rejected' | 'in_progress';
+// Widened in Week 5 to cover the Promotion mode (Section 3 of the Week 5
+// plan). DecisionPanel renders different button trios based on
+// Meeting.meetingType, but all five values share the same column.
+//   hiring   → hired | rejected | in_progress
+//   promotion→ promoted | held | in_progress
+// Single source of truth so the write path (api decisions route) validates
+// against the same set the UI offers — keep this and the Prisma enum aligned.
+export const DECISION_OUTCOMES = [
+  'hired',
+  'rejected',
+  'in_progress',
+  'promoted',
+  'held',
+] as const;
+export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number];
+export const decisionOutcomeSchema = z.enum(DECISION_OUTCOMES);
 
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+// ── Meeting mode ────────────────────────────────────────────────────────────
+// Hiring vs Promotion split. Drives engine prompt branching, rule
+// selection, the decision panel layout, and the Mirror tab set.
+
+export const MEETING_TYPES = ['hiring', 'promotion'] as const;
+export type MeetingType = (typeof MEETING_TYPES)[number];
+export const meetingTypeSchema = z.enum(MEETING_TYPES);
+
+export const MEETING_TYPE_LABELS: Record<MeetingType, string> = {
+  hiring: 'Hiring',
+  promotion: 'Promotion',
+};
 
 // ── Flag types ─────────────────────────────────────────────────────────────
 
@@ -14,11 +42,43 @@ export const FLAG_TYPES = [
   'asymmetric_concern',
   'hedging_language',
   'age_bias',
+  // ── Promotion-mode rules (Week 5) ────────────────────────────────────
+  // These four fire only when Meeting.meetingType = 'promotion'.
+  // Rule selection happens in api/src/analysis/rules/index.ts based on
+  // the parent meeting's mode; the engine prompt also branches.
+  'potential_vs_performance',
+  'tenure_framing',
+  'peer_comparison_bias',
+  'confidence_proxy',
 ] as const;
 
 export type FlagType = (typeof FLAG_TYPES)[number];
 
 export const flagTypeSchema = z.enum(FLAG_TYPES);
+
+// Hiring-mode FlagTypes — the original five. Used by the rule registry
+// to gate which rules fire per mode, and by the Mirror's Language tab
+// when meetingType=hiring.
+export const HIRING_FLAG_TYPES = [
+  'biased_language',
+  'criteria_drift',
+  'asymmetric_concern',
+  'hedging_language',
+  'age_bias',
+] as const satisfies readonly FlagType[];
+
+// Promotion-mode FlagTypes — added in Week 5. Each looks for a distinct
+// failure mode in promotion decisioning: rewarding perceived potential
+// over demonstrated work; conflating tenure with contribution; judging
+// against a single named peer rather than the level rubric; and
+// "needs more presence/assertiveness" feedback that proxies for
+// protected traits.
+export const PROMOTION_FLAG_TYPES = [
+  'potential_vs_performance',
+  'tenure_framing',
+  'peer_comparison_bias',
+  'confidence_proxy',
+] as const satisfies readonly FlagType[];
 
 // Human-readable labels used by the Mirror — server fills
 // summary.topCategory from this map and the client renders
@@ -30,6 +90,10 @@ export const FLAG_TYPE_LABELS: Record<FlagType, string> = {
   asymmetric_concern: 'Asymmetric concern',
   hedging_language: '"Culture fit" without evidence',
   age_bias: 'Energy / pace language',
+  potential_vs_performance: 'Potential vs performance',
+  tenure_framing: 'Tenure framing',
+  peer_comparison_bias: 'Peer-comparison bias',
+  confidence_proxy: 'Confidence proxy',
 };
 
 // ── Demographic enums (Zod-first so api Zod parsing and TS types share
@@ -84,10 +148,16 @@ export const RACE_SEGMENT_KEYS = [...RACES, 'unknown'] as const;
 export type RaceSegmentKey = (typeof RACE_SEGMENT_KEYS)[number];
 
 // Pipeline-tab decision outcome labels. Display-only (capitalised);
-// distinct from the database DecisionOutcome enum. Matches what the
-// aggregator's outcome map actually emits — re-add 'Advanced' here if
-// the schema ever grows an explicit advanced state (Week 5+).
-export type MirrorDecisionOutcome = 'Hired' | 'Declined' | 'Pending';
+// distinct from the database DecisionOutcome enum. Covers both hiring
+// and promotion modes — the Mirror's Decisions panel uses whichever
+// label is appropriate for the meeting's mode (see
+// decision-display.ts).
+export type MirrorDecisionOutcome =
+  | 'Hired'
+  | 'Declined'
+  | 'Pending'
+  | 'Promoted'
+  | 'Held';
 
 export interface MirrorManager {
   name: string;

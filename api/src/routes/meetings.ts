@@ -1,19 +1,11 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { createMeetingBody } from '@fairhire/shared';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
 import { runAnalysis } from '../analysis/analyseTranscript';
 
 export const meetingsRouter = Router();
-
-const createBody = z.object({
-  title: z.string().min(1),
-  transcript: z.string().trim().min(1).max(500_000),
-  transcriptFilename: z.string().min(1).max(255).optional(),
-  date: z.string().datetime(),
-  candidateIds: z.array(z.string().uuid()).min(1),
-});
 
 // Candidate rows include their 1:1 demographics; shared so the three meeting
 // queries below stay consistent.
@@ -35,6 +27,7 @@ meetingsRouter.get('/', async (req, res) => {
         title: true,
         transcriptFilename: true,
         date: true,
+        meetingType: true,
         createdAt: true,
         updatedAt: true,
         candidates: { include: candidateWithDemographics },
@@ -54,13 +47,14 @@ meetingsRouter.get('/', async (req, res) => {
 });
 
 meetingsRouter.post('/', async (req, res) => {
-  const parsed = createBody.safeParse(req.body);
+  const parsed = createMeetingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
 
-  const { title, transcript, transcriptFilename, date, candidateIds } = parsed.data;
+  const body = parsed.data;
+  const { title, transcript, transcriptFilename, date, candidateIds, meetingType } = body;
 
   const { meeting, runId } = await withManagerContext(req.manager.id, async (tx) => {
     const m = await tx.meeting.create({
@@ -69,6 +63,7 @@ meetingsRouter.post('/', async (req, res) => {
         transcript,
         transcriptFilename,
         date: new Date(date),
+        meetingType,
         managerId: req.manager.id,
         orgId: req.manager.orgId,
         candidates: {
@@ -77,6 +72,25 @@ meetingsRouter.post('/', async (req, res) => {
       },
       include: { candidates: { include: candidateWithDemographics } },
     });
+
+    // Promotion mode persists currentRole / tenureYears / lastPromotedAt
+    // onto the FIRST candidate row. Section 3 of the Week 5 plan reuses
+    // Candidate for the promotion target (one candidate per promotion
+    // meeting in practice). The upload form will enforce singleton
+    // selection on the Promotion tab; we update the first id either way
+    // so the data lands somewhere predictable if a future surface ever
+    // sends more.
+    if (body.meetingType === 'promotion') {
+      await tx.candidate.update({
+        where: { id: candidateIds[0] },
+        data: {
+          currentRole: body.currentRole,
+          tenureYears: body.tenureYears,
+          lastPromotedAt: body.lastPromotedAt ? new Date(body.lastPromotedAt) : null,
+        },
+      });
+    }
+
     const run = await tx.analysisRun.create({
       data: { meetingId: m.id, orgId: req.manager.orgId, status: 'pending' },
     });
@@ -92,13 +106,71 @@ meetingsRouter.post('/', async (req, res) => {
   });
 });
 
+// Re-run analysis on a meeting. Used by the Flag Review re-run button
+// (and, by extension, the failed-state Retry path). Wipes existing flags
+// for a fresh run — there's no Flag.runId yet, so the UI shows a
+// confirm-and-discard modal client-side before calling this so any
+// dismissals the manager has made don't disappear silently.
+//
+// The wipe + new AnalysisRun + setImmediate happens inside one transaction
+// so a partial state (flags deleted but no new run) can't be observed.
+// FlagSpan rows cascade off Flag, so we only need to delete flags.
+meetingsRouter.post('/:id/analyse', requireOwnership('meeting'), async (req, res) => {
+  const meetingId = req.params.id;
+  const { runId, started } = await withManagerContext(req.manager.id, async (tx) => {
+    // Guard against a re-run while one is already in flight (e.g. a
+    // double-click in the window between the 202 and the meeting refetch
+    // hiding the button). Each re-run creates a distinct AnalysisRun, and
+    // runAnalysis only claims its own run by id — so two concurrent runs
+    // would both analyse and both persist flags, doubling the flag set.
+    // If a pending/running run already exists, return it untouched rather
+    // than wiping flags and starting another.
+    const active = await tx.analysisRun.findFirst({
+      where: { meetingId, status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    });
+    if (active) return { runId: active.id, started: false };
+
+    await tx.flag.deleteMany({ where: { meetingId } });
+    const run = await tx.analysisRun.create({
+      data: { meetingId, orgId: req.manager.orgId, status: 'pending' },
+    });
+    return { runId: run.id, started: true };
+  });
+
+  // 202 either way — "analysis is (now / already) in progress." The client
+  // refetches the meeting and picks up the in-flight run's status.
+  res.status(202).json({ runId });
+
+  // Only schedule when this request actually created the run; an in-flight
+  // run is already being processed by its original scheduling.
+  if (started) {
+    setImmediate(() => {
+      runAnalysis(runId).catch((err) => {
+        console.error('[analysis] unhandled error for re-run', runId, err);
+      });
+    });
+  }
+});
+
 meetingsRouter.get('/:id', requireOwnership('meeting'), async (req, res) => {
   const meeting = await withManagerContext(req.manager.id, async (tx) => {
     return tx.meeting.findUnique({
       where: { id: req.params.id },
       include: {
         candidates: { include: candidateWithDemographics },
-        flags: true,
+        // Each flag carries its FlagSpan rows so the client can render
+        // every occurrence (multi-instance highlighting + Found-in-N
+        // affordance from Section 1 of the Week 5 plan). Sorted by
+        // startOffset so consumers don't have to.
+        flags: {
+          include: {
+            spans: {
+              orderBy: { startOffset: 'asc' },
+              select: { id: true, startOffset: true, endOffset: true },
+            },
+          },
+        },
         analysisRuns: { orderBy: { createdAt: 'desc' }, take: 1 },
         // Decisions recorded against this meeting (by this manager via
         // RLS). The Flag Review screen surfaces the current outcome

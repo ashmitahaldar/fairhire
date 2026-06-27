@@ -1,20 +1,25 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { decisionOutcomeSchema } from '@fairhire/shared';
 import { withManagerContext } from '../lib/prisma';
 import { requireOwnership } from '../middleware/requireOwnership';
 
 export const decisionsRouter = Router();
 
+// outcome accepts every DecisionOutcome (hiring + promotion). Pre-Week-5
+// this was hard-coded to the hiring trio, which rejected promotion
+// decisions (promoted/held) with a 400 — the Decision panel offers those
+// in promotion mode. Sourced from shared so it can't drift from the enum.
 const createBody = z.object({
   meetingId: z.string().uuid(),
   candidateId: z.string().uuid(),
-  outcome: z.enum(['hired', 'rejected', 'in_progress']).default('in_progress'),
+  outcome: decisionOutcomeSchema.default('in_progress'),
   notes: z.string().optional(),
 });
 
 const updateBody = z.object({
-  outcome: z.enum(['hired', 'rejected', 'in_progress']).optional(),
+  outcome: decisionOutcomeSchema.optional(),
   notes: z.string().optional(),
 });
 

@@ -62,4 +62,32 @@ describe('RulesEngine', () => {
     expect(flags.length).toBeGreaterThanOrEqual(1);
     expect(flags.every((f) => f.flagType === 'hedging_language')).toBe(true);
   });
+
+  // ── Week 5: mode-aware rule selection ──────────────────────────────────
+  // Hiring rules don't fire in promotion mode and vice-versa. Individual
+  // rule suites cover phrase-level matching; this is the integration check.
+
+  it('does not fire hiring rules when run in promotion mode', () => {
+    const flags = engine.run(
+      'We discussed her plans for starting a family. Not sure about cultural fit.',
+      'promotion',
+    );
+    expect(flags.some((f) => f.flagType === 'asymmetric_concern')).toBe(false);
+    expect(flags.some((f) => f.flagType === 'hedging_language')).toBe(false);
+  });
+
+  it('fires promotion rules in promotion mode', () => {
+    const flags = engine.run(
+      'She has a lot of potential. He earned his stripes over the past five cycles.',
+      'promotion',
+    );
+    const types = new Set(flags.map((f) => f.flagType));
+    expect(types.has('potential_vs_performance')).toBe(true);
+    expect(types.has('tenure_framing')).toBe(true);
+  });
+
+  it('does not fire promotion rules in hiring mode (default)', () => {
+    const flags = engine.run('She has a lot of potential for the role.');
+    expect(flags.some((f) => f.flagType === 'potential_vs_performance')).toBe(false);
+  });
 });

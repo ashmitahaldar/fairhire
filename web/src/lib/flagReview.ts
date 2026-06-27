@@ -1,4 +1,4 @@
-import type { AnalysisStatus, FlagType } from '@fairhire/shared';
+import type { AnalysisStatus, FlagType, MeetingType } from '@fairhire/shared';
 import type { SeverityKey } from './severity';
 
 // View-model types the flag-review components consume. The data adapter
@@ -11,6 +11,10 @@ export const FLAG_TYPE_LABELS: Record<FlagType, string> = {
   asymmetric_concern: 'Asymmetric concern',
   hedging_language: 'Hedging language',
   age_bias: 'Age bias',
+  potential_vs_performance: 'Potential vs performance',
+  tenure_framing: 'Tenure framing',
+  peer_comparison_bias: 'Peer-comparison bias',
+  confidence_proxy: 'Confidence proxy',
 };
 
 export interface FlagVM {
@@ -28,15 +32,31 @@ export interface FlagVM {
   confidence: number;
   severityKey: SeverityKey;
   severityLabel: string;
+  /** Server-persisted dismissal state. Seeds the screen's dismissed
+   *  set on mount; mutations write back through useSetFlagDismissed. */
+  dismissed: boolean;
+  /** Reason recorded when the flag was dismissed; null when live. */
+  dismissReason: string | null;
+  /**
+   * Number of times this flag's excerpt appears in the transcript (i.e.
+   * FlagSpan rows on the wire). 1 for single-instance flags, ≥1 for
+   * multi-instance, 0 when the LLM produced an excerpt that wasn't a
+   * verbatim substring. Drives the "Found in N places" affordance.
+   */
+  instanceCount: number;
 }
 
-// A transcript paragraph is an ordered list of segments. A segment is either
-// plain text or a flagged span carrying the id of the flag it belongs to.
-export type TranscriptSegment =
-  | { kind: 'text'; text: string }
-  | { kind: 'flag'; text: string; flagId: string };
-
-export type TranscriptParagraph = TranscriptSegment[];
+// A flagged region in the raw transcript: full-document character
+// offsets, flagged by id. Week 5 Step 3 switched the renderer from
+// pre-segmented paragraphs to TipTap decorations driven by this flat
+// list; multi-instance is first-class (one flagId, N entries).
+export interface FlagSpanRef {
+  flagId: string;
+  /** character offset in the raw transcript */
+  start: number;
+  /** character offset in the raw transcript (exclusive) */
+  end: number;
+}
 
 export interface AnalysisVM {
   status: AnalysisStatus;
@@ -49,8 +69,18 @@ export interface AnalysisVM {
   error: string | null;
 }
 
-/** Database DecisionOutcome — matches the Prisma enum. */
-export type DecisionOutcome = 'hired' | 'rejected' | 'in_progress';
+/**
+ * Database DecisionOutcome — matches the Prisma enum (widened in Week 5
+ * to cover both hiring and promotion modes).
+ *   hiring    → hired | rejected | in_progress
+ *   promotion → promoted | held | in_progress
+ */
+export type DecisionOutcome =
+  | 'hired'
+  | 'rejected'
+  | 'in_progress'
+  | 'promoted'
+  | 'held';
 
 /** Recorded outcome for this meeting's primary candidate, or null if none yet. */
 export interface DecisionVM {
@@ -62,6 +92,9 @@ export interface DecisionVM {
 export interface MeetingVM {
   id: string;
   title: string;
+  /** Hiring vs Promotion — drives the Decision panel layout and the
+   *  Flag Review mode badge in the header. */
+  meetingType: MeetingType;
   /** Candidate.id for the primary candidate — needed when creating a Decision. */
   candidateId: string | null;
   candidateName: string;
@@ -69,7 +102,18 @@ export interface MeetingVM {
   /** formatted Meeting.date */
   panelDate: string;
   wordCount: number;
-  transcript: TranscriptParagraph[];
+  /**
+   * Raw transcript text. The Transcript component splits paragraphs and
+   * builds the TipTap document from this; FlagSpan offsets reference
+   * positions in this string.
+   */
+  transcriptText: string;
+  /**
+   * Flat list of every flag occurrence in the transcript (full-doc
+   * character offsets). Multi-instance: one Flag with N occurrences
+   * contributes N entries; the renderer emits one decoration per entry.
+   */
+  flagSpans: FlagSpanRef[];
   flags: FlagVM[];
   analysis: AnalysisVM;
   /** Current decision for the primary candidate (null id = unrecorded). */

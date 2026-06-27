@@ -1,7 +1,8 @@
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
+import type { MeetingType } from '@fairhire/shared';
 import { LLMResponseSchema } from './schema';
-import { SYSTEM_PROMPT, buildUserMessage } from './prompt';
+import { getSystemPrompt, buildUserMessage } from './prompt';
 import type { FlagCandidate } from '../types';
 
 const DEFAULT_MODEL = 'gpt-4o-2024-08-06';
@@ -56,17 +57,21 @@ export class LLMAnalyser {
   // `ok: false` means the LLM layer hard-failed (API error or unparseable
   // after one retry) and the result is rules-only. Callers must surface this
   // rather than treat an empty list as "the model found nothing".
-  async analyse(transcript: string): Promise<{ flags: FlagCandidate[]; ok: boolean }> {
-    const userMessage = buildUserMessage(transcript);
+  async analyse(
+    transcript: string,
+    meetingType: MeetingType = 'hiring',
+  ): Promise<{ flags: FlagCandidate[]; ok: boolean }> {
+    const userMessage = buildUserMessage(transcript, meetingType);
+    const systemPrompt = getSystemPrompt(meetingType);
 
     try {
-      const raw = await this.callModel(userMessage);
+      const raw = await this.callModel(userMessage, systemPrompt);
       const parsed = LLMResponseSchema.safeParse(raw);
       if (parsed.success) return { flags: enforceConfidenceFloor(parsed.data.flags), ok: true };
 
       // One retry with an explicit schema reminder
       console.warn('[LLMAnalyser] First parse failed, retrying with schema reminder');
-      const rawRetry = await this.callModel(userMessage, true);
+      const rawRetry = await this.callModel(userMessage, systemPrompt, true);
       const parsedRetry = LLMResponseSchema.safeParse(rawRetry);
       if (parsedRetry.success) return { flags: enforceConfidenceFloor(parsedRetry.data.flags), ok: true };
 
@@ -82,10 +87,14 @@ export class LLMAnalyser {
     }
   }
 
-  private async callModel(userMessage: string, schemaReminder = false): Promise<unknown> {
+  private async callModel(
+    userMessage: string,
+    systemPrompt: string,
+    schemaReminder = false,
+  ): Promise<unknown> {
     const systemContent = schemaReminder
-      ? `${SYSTEM_PROMPT}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY the JSON object described above with no other text.`
-      : SYSTEM_PROMPT;
+      ? `${systemPrompt}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY the JSON object described above with no other text.`
+      : systemPrompt;
 
     const response = await this.client.chat.completions.create(
       {

@@ -8,12 +8,18 @@ import {
   NUDGE_DISMISSAL_MIN_TOTAL,
   NUDGE_DISMISSAL_RATE_THRESHOLD,
   NUDGE_MAX_PER_RESPONSE,
+  NUDGE_PHASE_C_COMPOSITION_SHIFT_PP,
+  NUDGE_PHASE_C_MIN_APPLIED_TOTAL,
+  NUDGE_PHASE_C_MIN_PER_GROUP,
+  NUDGE_PHASE_C_STAGE_GAP_PP,
   NUDGE_TOP_CATEGORY_DOMINANCE_RATIO,
   NUDGE_TOP_CATEGORY_MIN_COUNT,
   type LanguageFlagRow,
+  type MeetingType,
   type MirrorDecision,
   type MirrorNudge,
   type MirrorSummary,
+  type PipelineRow,
 } from '@fairhire/shared';
 
 // Phase D nudge rules. Each rule is a pure function over the aggregated
@@ -27,6 +33,11 @@ export interface NudgeInputs {
   summary: MirrorSummary;
   languageFlags: LanguageFlagRow[];   // already sorted by count desc
   decisions: MirrorDecision[];
+  // Week 5 Step 7 — Phase C nudges need the funnel + the active mode so
+  // they can bail in promotion (no pipeline concept) and reach into the
+  // per-stage segment counts when in hiring mode.
+  pipeline: PipelineRow[];
+  meetingType: MeetingType;
 }
 
 interface RuleResult {
@@ -117,9 +128,11 @@ const highDismissalRate: Rule = ({ summary }) => {
 // would conflate "I lean toward declining" with "I haven't decided." The
 // rule speaks to calibration of *closed* decisions only.
 const decisionsSkewing: Rule = ({ decisions }) => {
-  const final = decisions.filter(
-    (d) => d.outcome === 'Hired' || d.outcome === 'Declined',
-  );
+  // "Final" = any closed outcome. `Pending` (in_progress) is the only
+  // non-final label in either mode, so excluding it captures Hired /
+  // Declined for hiring and Promoted / Held for promotion without
+  // hard-coding the per-mode vocabulary.
+  const final = decisions.filter((d) => d.outcome !== 'Pending');
   if (final.length < NUDGE_DECISION_SKEW_MIN_TOTAL) return null;
 
   const counts: Record<string, number> = {};
@@ -167,6 +180,125 @@ const highAvgFlags: Rule = ({ summary }) => {
   };
 };
 
+// ── Phase C helpers ───────────────────────────────────────────────────────
+// Convention from web/src/components/pattern-mirror/ConversionGrid.tsx:
+//   majority    = chinese
+//   represented = malay + indian + other
+//   unknown     excluded from both — incomplete data, not a fifth group.
+//
+// Pulled out as helpers because both Phase C rules read the same
+// per-stage breakdown.
+
+interface GroupBreakdown {
+  majority: number;
+  represented: number;
+}
+
+function groupsForStage(row: PipelineRow | undefined): GroupBreakdown {
+  if (!row) return { majority: 0, represented: 0 };
+  const s = row.segments;
+  return {
+    majority: s.chinese,
+    represented: s.malay + s.indian + s.other,
+  };
+}
+
+function findStage(pipeline: PipelineRow[], stage: string): PipelineRow | undefined {
+  return pipeline.find((r) => r.stage === stage);
+}
+
+// ── Rule 6: Stage drop-off gap (Phase C, hiring-only) ─────────────────────
+// Walks the funnel's advance transitions (Applied → Interviewed,
+// Interviewed → Hired) and picks the one where represented candidates
+// drop off most sharply relative to majority. Rejected is a parallel
+// terminal state, not a drop-off step, so it's not considered.
+//
+// Drop-off pct for a group = (from_count - to_count) / from_count.
+// Gap = represented_dropoff_pct - majority_dropoff_pct (in pp).
+// Fires only when both groups have ≥ MIN_PER_GROUP at the "from" stage
+// AND the gap exceeds STAGE_GAP_PP.
+const ADVANCE_TRANSITIONS: Array<[from: string, to: string]> = [
+  ['Applied', 'Interviewed'],
+  ['Interviewed', 'Hired'],
+];
+
+const stageDropoffGap: Rule = ({ pipeline, meetingType }) => {
+  if (meetingType !== 'hiring') return null;
+
+  let best: { from: string; to: string; gapPp: number } | null = null;
+
+  for (const [from, to] of ADVANCE_TRANSITIONS) {
+    const fromGroups = groupsForStage(findStage(pipeline, from));
+    const toGroups = groupsForStage(findStage(pipeline, to));
+
+    if (fromGroups.majority < NUDGE_PHASE_C_MIN_PER_GROUP) continue;
+    if (fromGroups.represented < NUDGE_PHASE_C_MIN_PER_GROUP) continue;
+
+    const majDropoff = (fromGroups.majority - toGroups.majority) / fromGroups.majority;
+    const repDropoff =
+      (fromGroups.represented - toGroups.represented) / fromGroups.represented;
+
+    const gapPp = Math.round((repDropoff - majDropoff) * 100);
+    if (gapPp < NUDGE_PHASE_C_STAGE_GAP_PP) continue;
+
+    if (!best || gapPp > best.gapPp) {
+      best = { from, to, gapPp };
+    }
+  }
+
+  if (!best) return null;
+
+  return {
+    nudge: {
+      id: 'phase-c-stage-dropoff',
+      tag: 'Pipeline · representation',
+      sentence: `Represented candidates drop off most sharply between ${best.from} and ${best.to} — a ${best.gapPp}pp gap vs majority candidates.`,
+      linkTo: 'Demographics',
+    },
+    severity: best.gapPp,
+  };
+};
+
+// ── Rule 7: Composition shift at hire (Phase C, hiring-only) ─────────────
+// Compares the majority share of the applied pool to the majority share
+// of hires. Fires when the share rises by more than COMPOSITION_SHIFT_PP,
+// floored by MIN_APPLIED_TOTAL so a tiny applied pool can't drive the
+// signal.
+const compositionShiftAtHire: Rule = ({ pipeline, meetingType }) => {
+  if (meetingType !== 'hiring') return null;
+
+  const applied = findStage(pipeline, 'Applied');
+  const hired = findStage(pipeline, 'Hired');
+  if (!applied || !hired) return null;
+
+  // Use majority + represented as the denominator (exclude 'unknown'
+  // candidates so the share isn't diluted by missing demographics).
+  const appliedGroups = groupsForStage(applied);
+  const hiredGroups = groupsForStage(hired);
+
+  const appliedKnown = appliedGroups.majority + appliedGroups.represented;
+  const hiredKnown = hiredGroups.majority + hiredGroups.represented;
+
+  if (appliedKnown < NUDGE_PHASE_C_MIN_APPLIED_TOTAL) return null;
+  if (hiredKnown === 0) return null;
+
+  const appliedMajorityPct = Math.round((appliedGroups.majority / appliedKnown) * 100);
+  const hiredMajorityPct = Math.round((hiredGroups.majority / hiredKnown) * 100);
+  const shiftPp = hiredMajorityPct - appliedMajorityPct;
+
+  if (shiftPp < NUDGE_PHASE_C_COMPOSITION_SHIFT_PP) return null;
+
+  return {
+    nudge: {
+      id: 'phase-c-composition-shift',
+      tag: 'Pipeline · representation',
+      sentence: `Your hires this period were ${hiredMajorityPct}% majority background vs your applied pool of ${appliedMajorityPct}%.`,
+      linkTo: 'Demographics',
+    },
+    severity: shiftPp,
+  };
+};
+
 // All rules registered here in arbitrary order — the orchestrator's
 // severity sort is what determines display order. Adding a new rule is
 // one append to this array.
@@ -176,6 +308,8 @@ const RULES: Rule[] = [
   highDismissalRate,
   decisionsSkewing,
   highAvgFlags,
+  stageDropoffGap,
+  compositionShiftAtHire,
 ];
 
 // Public orchestrator. Runs every rule, collects firings, sorts by

@@ -18,6 +18,7 @@ function row(
     demographics: null,
     meetingCount: 0,
     lastDecisionOutcome: null,
+    lastDecisionMeetingType: null,
     canModify: false,
     ...overrides,
   };
@@ -88,6 +89,24 @@ describe('Candidates page', () => {
     expect(screen.getByText('Malay · M')).toBeTruthy();
     expect(screen.getByText('Hired')).toBeTruthy();
     expect(screen.getByText('3')).toBeTruthy();
+  });
+
+  it('labels a promotion outcome as "Promoted" (not blank) using the decision meeting mode', async () => {
+    // Regression: the row used the hiring-only label map, so a promotion
+    // decision (promoted/held) rendered an empty outcome cell.
+    mockCandidates([
+      row({
+        id: 'c1',
+        name: 'Priya Menon',
+        lastDecisionOutcome: 'promoted',
+        lastDecisionMeetingType: 'promotion',
+      }),
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Priya Menon')).toBeTruthy();
+    expect(screen.getByText('Promoted')).toBeTruthy();
   });
 
   it('disables edit + delete buttons when canModify is false', async () => {

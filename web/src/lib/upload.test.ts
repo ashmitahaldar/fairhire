@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_TRANSCRIPT_CHARS, readTranscriptFile, validateTranscript } from './upload';
+import {
+  MAX_TRANSCRIPT_CHARS,
+  readTranscriptFile,
+  validateTranscript,
+  validatePromotionFields,
+  type PromotionFields,
+} from './upload';
 
 describe('validateTranscript', () => {
   it('rejects empty / whitespace-only input', () => {
@@ -12,6 +18,39 @@ describe('validateTranscript', () => {
 
   it('accepts a normal transcript', () => {
     expect(validateTranscript('A genuine panel debrief transcript.')).toBeNull();
+  });
+});
+
+describe('validatePromotionFields', () => {
+  const ok: PromotionFields = { currentRole: 'Vice President', tenureYears: '6', lastPromotedAt: '' };
+
+  it('accepts a fully-specified promotion fieldset', () => {
+    expect(validatePromotionFields(ok)).toBeNull();
+  });
+
+  it('accepts tenure of zero years', () => {
+    expect(validatePromotionFields({ ...ok, tenureYears: '0' })).toBeNull();
+  });
+
+  it('requires a current role', () => {
+    expect(validatePromotionFields({ ...ok, currentRole: '  ' })).toMatch(/current role/i);
+  });
+
+  it('requires tenure to be present', () => {
+    expect(validatePromotionFields({ ...ok, tenureYears: '' })).toMatch(/tenure/i);
+  });
+
+  it('rejects a non-numeric tenure', () => {
+    expect(validatePromotionFields({ ...ok, tenureYears: 'six' })).toMatch(/tenure/i);
+  });
+
+  it('rejects a fractional tenure', () => {
+    expect(validatePromotionFields({ ...ok, tenureYears: '6.5' })).toMatch(/whole number/i);
+  });
+
+  it('rejects tenure outside the 0–60 range', () => {
+    expect(validatePromotionFields({ ...ok, tenureYears: '61' })).toMatch(/between 0 and 60/i);
+    expect(validatePromotionFields({ ...ok, tenureYears: '-1' })).toMatch(/between 0 and 60/i);
   });
 });
 
