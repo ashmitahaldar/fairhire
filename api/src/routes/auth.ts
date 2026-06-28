@@ -9,6 +9,11 @@ export const authRouter = Router();
 const syncBody = z.object({
   name: z.string().min(1),
   email: z.string().email(),
+  // Demo-only: the registrant self-selects their role at first sign-in.
+  // In a real deployment this comes from an org owner / invitation, never
+  // the registrant — role is a privilege boundary. Applied on create only
+  // (the upsert's `update: {}` means re-syncs never change an existing role).
+  role: z.enum(['manager', 'hr_admin']).optional(),
 });
 
 // POST /auth/sync
@@ -28,7 +33,7 @@ authRouter.post('/sync', clerkAuth, async (req, res) => {
     return;
   }
 
-  const { name, email } = parsed.data;
+  const { name, email, role } = parsed.data;
 
   // Assign to the first org and department — sufficient for Week 1 single-tenant setup.
   // A proper invitation/org-selection flow replaces this in a later week.
@@ -46,7 +51,7 @@ authRouter.post('/sync', clerkAuth, async (req, res) => {
 
   const manager = await systemPrisma.manager.upsert({
     where: { clerkUserId: userId },
-    create: { clerkUserId: userId, name, email, orgId: org.id, deptId: dept.id, role: 'manager' },
+    create: { clerkUserId: userId, name, email, orgId: org.id, deptId: dept.id, role: role ?? 'manager' },
     update: {},
     select: { id: true, name: true, email: true, role: true, orgId: true, deptId: true },
   });
