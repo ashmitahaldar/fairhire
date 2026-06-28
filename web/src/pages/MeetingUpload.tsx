@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2, Sparkles } from 'lucide-react';
 import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/shared';
 import {
   readTranscriptFile,
@@ -275,8 +276,13 @@ export default function MeetingUpload() {
           <button
             type="submit"
             disabled={createMeeting.isPending}
-            className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 disabled:opacity-40 disabled:cursor-not-allowed"
           >
+            {createMeeting.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            )}
             {createMeeting.isPending ? 'Analysing…' : 'Upload & analyse'}
           </button>
           {/* Pre-submit framing per Section 4 of the Week 5 plan — sets

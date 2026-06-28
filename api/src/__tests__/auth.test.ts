@@ -19,12 +19,13 @@ jest.mock('../lib/prisma', () => ({
 }));
 
 import { createApp } from '../app';
-import { systemPrisma } from '../lib/prisma';
+import { systemPrisma, withManagerContext } from '../lib/prisma';
 
 const mockOrgFindFirst = systemPrisma.organisation.findFirst as jest.Mock;
 const mockDeptFindFirst = systemPrisma.department.findFirst as jest.Mock;
 const mockUpsert = systemPrisma.manager.upsert as jest.Mock;
 const mockFindUnique = systemPrisma.manager.findUnique as jest.Mock;
+const mockWithCtx = withManagerContext as jest.Mock;
 
 const app = createApp();
 
@@ -99,5 +100,98 @@ describe('GET /auth/me', () => {
     const res = await request(app).get('/auth/me');
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /auth/departments', () => {
+  it('returns the org-scoped division list', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockFindUnique.mockResolvedValue(managerA);
+    const list = [
+      { id: 'dept-ib', name: 'Investment Banking' },
+      { id: 'dept-gm', name: 'Global Markets' },
+    ];
+    mockWithCtx.mockImplementation((_id: string, cb: (tx: unknown) => unknown) =>
+      cb({ department: { findMany: jest.fn().mockResolvedValue(list) } }),
+    );
+
+    const res = await request(app).get('/auth/departments');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(list);
+    // Scoped to the caller — read inside their RLS context, not systemPrisma.
+    expect(mockWithCtx).toHaveBeenCalledWith(managerA.id, expect.any(Function));
+  });
+});
+
+describe('PATCH /auth/me', () => {
+  it('moves the manager to a different division in their org', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockFindUnique.mockResolvedValue(managerA);
+    const updateMock = jest.fn().mockResolvedValue({ ...managerA, deptId: 'dept-gm' });
+    mockWithCtx.mockImplementation((_id: string, cb: (tx: unknown) => unknown) =>
+      cb({
+        department: { findUnique: jest.fn().mockResolvedValue({ id: 'dept-gm' }) },
+        manager: { update: updateMock },
+      }),
+    );
+
+    const res = await request(app).patch('/auth/me').send({ deptId: 'dept-gm' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.deptId).toBe('dept-gm');
+    // Only deptId is written — never role, even if the policy would allow it.
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { deptId: 'dept-gm' } }),
+    );
+  });
+
+  it('ignores a role field smuggled into the body (role stays put)', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockFindUnique.mockResolvedValue(managerA);
+    const updateMock = jest.fn().mockResolvedValue({ ...managerA, deptId: 'dept-gm' });
+    mockWithCtx.mockImplementation((_id: string, cb: (tx: unknown) => unknown) =>
+      cb({
+        department: { findUnique: jest.fn().mockResolvedValue({ id: 'dept-gm' }) },
+        manager: { update: updateMock },
+      }),
+    );
+
+    const res = await request(app)
+      .patch('/auth/me')
+      .send({ deptId: 'dept-gm', role: 'hr_admin' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('manager');
+    const writtenData = updateMock.mock.calls[0][0].data;
+    expect(writtenData).toEqual({ deptId: 'dept-gm' });
+    expect(writtenData).not.toHaveProperty('role');
+  });
+
+  it('rejects a division outside the org with 400 and never writes', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockFindUnique.mockResolvedValue(managerA);
+    const updateMock = jest.fn();
+    mockWithCtx.mockImplementation((_id: string, cb: (tx: unknown) => unknown) =>
+      cb({
+        department: { findUnique: jest.fn().mockResolvedValue(null) },
+        manager: { update: updateMock },
+      }),
+    );
+
+    const res = await request(app).patch('/auth/me').send({ deptId: 'foreign-dept' });
+
+    expect(res.status).toBe(400);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing deptId with 400', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app).patch('/auth/me').send({});
+
+    expect(res.status).toBe(400);
+    expect(mockWithCtx).not.toHaveBeenCalled();
   });
 });

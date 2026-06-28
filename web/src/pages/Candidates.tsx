@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Plus, Users } from 'lucide-react';
 import {
   useCandidatesList,
   useSoftDeleteCandidate,
@@ -137,8 +138,8 @@ export default function Candidates() {
 
 function Header({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="pt-10 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
+    <div className="pt-8 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
             Candidates
@@ -153,8 +154,9 @@ function Header({ onAdd }: { onAdd: () => void }) {
         <button
           type="button"
           onClick={onAdd}
-          className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
         >
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Add candidate
         </button>
       </div>
@@ -195,6 +197,7 @@ function Controls({
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="border-t border-hairline pt-12">
+      <Users className="h-5 w-5 text-ink-tertiary mb-4" aria-hidden="true" />
       <p className="font-serif italic text-section text-ink-secondary mb-6 [text-wrap:pretty]">
         No candidates on file yet. Add one to get started.
       </p>

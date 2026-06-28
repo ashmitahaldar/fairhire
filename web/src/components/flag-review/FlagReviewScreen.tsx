@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Play, RefreshCw } from 'lucide-react';
 import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
 import { MEETING_TYPE_LABELS } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
@@ -327,17 +328,22 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
               <button
                 type="button"
                 onClick={() => startStaggeredReveal()}
-                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
               >
-                ▷ Replay
+                <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                Replay
               </button>
               <button
                 type="button"
                 onClick={requestRerun}
                 disabled={rerun.isPending}
-                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {rerun.isPending ? 'Re-running…' : '↻ Re-run analysis'}
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${rerun.isPending ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                {rerun.isPending ? 'Re-running…' : 'Re-run analysis'}
               </button>
             </div>
           )}

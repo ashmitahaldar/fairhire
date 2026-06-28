@@ -1,19 +1,41 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
+import {
+  Activity,
+  BarChart3,
+  LayoutDashboard,
+  Settings2,
+  Upload,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { useManager } from '../lib/ManagerContext';
+import { WorkspaceSettings } from './account/WorkspaceSettings';
 
 // App chrome. The nav is part of the editorial design system like every screen
 // it wraps — serif wordmark, hairline rules, ink tokens, and an oxblood
 // underline on the active route (the same active-tab idiom as the Mirror tabs).
-function NavItem({ to, end, children }: { to: string; end?: boolean; children: string }) {
+// A small line icon sits to the left of each label as a quiet wayfinding aid.
+function NavItem({
+  to,
+  end,
+  icon: Icon,
+  children,
+}: {
+  to: string;
+  end?: boolean;
+  icon: LucideIcon;
+  children: string;
+}) {
   return (
     <NavLink to={to} end={end}>
       {({ isActive }) => (
         <span
-          className={`relative inline-block whitespace-nowrap text-sm py-1 transition-colors duration-120 ${
+          className={`relative inline-flex items-center gap-1.5 whitespace-nowrap text-sm py-1 transition-colors duration-120 ${
             isActive ? 'text-ink' : 'text-ink-secondary hover:text-ink'
           }`}
         >
+          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
           {children}
           <span
             aria-hidden="true"
@@ -49,16 +71,36 @@ export function Layout() {
               account button stay pinned. py-2 keeps the active underline inside
               the scroll box (overflow-x:auto forces overflow-y:auto). */}
           <div className="flex items-center gap-4 sm:gap-7 min-w-0 overflow-x-auto py-2">
-            <NavItem to="/" end>
+            <NavItem to="/" end icon={LayoutDashboard}>
               Dashboard
             </NavItem>
-            <NavItem to="/meetings/upload">Upload</NavItem>
-            <NavItem to="/candidates">Candidates</NavItem>
-            <NavItem to="/pattern-mirror">Pattern Mirror</NavItem>
-            {managerRole === 'hr_admin' && <NavItem to="/hr">HR Overview</NavItem>}
+            <NavItem to="/meetings/upload" icon={Upload}>
+              Upload
+            </NavItem>
+            <NavItem to="/candidates" icon={Users}>
+              Candidates
+            </NavItem>
+            <NavItem to="/pattern-mirror" icon={Activity}>
+              Pattern Mirror
+            </NavItem>
+            {managerRole === 'hr_admin' && (
+              <NavItem to="/hr" icon={BarChart3}>
+                HR Overview
+              </NavItem>
+            )}
           </div>
           <span className="shrink-0 flex items-center">
-            <UserButton afterSignOutUrl="/" />
+            <UserButton afterSignOutUrl="/">
+              {/* Custom account-settings page: account type + division, the
+                  FairHire-specific fields Clerk doesn't know about. */}
+              <UserButton.UserProfilePage
+                label="Workspace"
+                labelIcon={<Settings2 className="h-4 w-4" aria-hidden="true" />}
+                url="workspace"
+              >
+                <WorkspaceSettings />
+              </UserButton.UserProfilePage>
+            </UserButton>
           </span>
         </div>
       </nav>

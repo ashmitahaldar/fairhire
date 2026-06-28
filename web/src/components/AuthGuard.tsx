@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import type { Role } from '@fairhire/shared';
 import { apiFetch, ApiError } from '../lib/api';
-import { ManagerContext, type ManagerProfile } from '../lib/ManagerContext';
+import { ManagerContext, ManagerUpdateContext, type ManagerProfile } from '../lib/ManagerContext';
 import { RolePicker } from './RolePicker';
 
 // 'checking'  — looking up an existing Manager row (GET /auth/me)
@@ -93,6 +93,14 @@ export function AuthGuard() {
     setSyncState('idle');
   };
 
+  // Patches the cached profile in place (e.g. the account page changing the
+  // manager's division) so it shows the new value without re-fetching /auth/me.
+  const updateManager = useCallback(
+    (patch: Partial<ManagerProfile>) =>
+      setManager((prev) => (prev ? { ...prev, ...patch } : prev)),
+    [],
+  );
+
   // Order matters: SignIn must be reachable from a fresh session. The check
   // useEffect only fires when isSignedIn, so syncState stays 'idle' for a
   // signed-out user — gating Loading on it ahead of the !isSignedIn check
@@ -113,7 +121,9 @@ export function AuthGuard() {
 
   return (
     <ManagerContext.Provider value={manager!}>
-      <Outlet />
+      <ManagerUpdateContext.Provider value={updateManager}>
+        <Outlet />
+      </ManagerUpdateContext.Provider>
     </ManagerContext.Provider>
   );
 }

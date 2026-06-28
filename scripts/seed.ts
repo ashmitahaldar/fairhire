@@ -40,9 +40,23 @@ async function main() {
     data: { name: 'Meridian Capital Partners' },
   });
 
-  const dept = await prisma.department.create({
-    data: { orgId: org.id, name: 'Investment Banking' },
-  });
+  // Several divisions so the account page's division picker is meaningful.
+  // The seed managers below all live in Investment Banking (departments[0]);
+  // they can move themselves between these from the Workspace settings page.
+  const departmentNames = [
+    'Investment Banking',
+    'Global Markets',
+    'Wealth Management',
+    'Asset Management',
+    'Group Technology',
+    'Risk & Compliance',
+  ];
+  const departments = await Promise.all(
+    departmentNames.map((name) =>
+      prisma.department.create({ data: { orgId: org.id, name } }),
+    ),
+  );
+  const dept = departments[0]!; // Investment Banking — the managers' home division
 
   // ─── Managers ───────────────────────────────────────────────────────────────
 

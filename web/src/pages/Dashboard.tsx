@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Check, Clock, Inbox, Loader2, TriangleAlert, Upload, type LucideIcon } from 'lucide-react';
 import { useManager } from '../lib/ManagerContext';
 import { useMeetings, type AnalysisStatus, type MeetingListItem } from '../lib/meetingsApi';
 import { InlineError, TableSkeleton } from '../components/shared/primitives';
@@ -45,8 +46,8 @@ export default function Dashboard() {
 
 function Header({ firstName }: { firstName: string }) {
   return (
-    <div className="pt-10 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
+    <div className="pt-8 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
             Decision companion
@@ -60,8 +61,9 @@ function Header({ firstName }: { firstName: string }) {
         </div>
         <Link
           to="/meetings/upload"
-          className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
         >
+          <Upload className="h-4 w-4" aria-hidden="true" />
           Upload transcript
         </Link>
       </div>
@@ -89,6 +91,7 @@ function Stat({ children }: { children: ReactNode }) {
 function EmptyState() {
   return (
     <div className="border-t border-hairline pt-12">
+      <Inbox className="h-5 w-5 text-ink-tertiary mb-4" aria-hidden="true" />
       <p className="font-serif italic text-section text-ink-secondary mb-6 [text-wrap:pretty]">
         Nothing on file yet. Upload your first panel debrief to see flags surface here.
       </p>
@@ -202,8 +205,24 @@ const STATUS_LABEL: Record<AnalysisStatus, string> = {
   failed: 'Failed',
 };
 
+const STATUS_ICON: Record<AnalysisStatus, LucideIcon> = {
+  completed: Check,
+  pending: Clock,
+  running: Loader2,
+  failed: TriangleAlert,
+};
+
 function StatusLabel({ status }: { status: AnalysisStatus }) {
-  return <span className={`text-base ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</span>;
+  const Icon = STATUS_ICON[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-base ${STATUS_CLASS[status]}`}>
+      <Icon
+        className={`h-3.5 w-3.5 shrink-0 ${status === 'running' ? 'animate-spin' : ''}`}
+        aria-hidden="true"
+      />
+      {STATUS_LABEL[status]}
+    </span>
+  );
 }
 
 function formatDate(iso: string): string {

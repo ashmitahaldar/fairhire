@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
 import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/shared';
 import type { MirrorData } from '../../lib/mirrorData';
 import { Section } from './Section';
@@ -103,6 +104,7 @@ function EmptyPeriod({ meetingType }: { meetingType: MeetingType }) {
   const noun = meetingType === 'promotion' ? 'promotion discussions' : 'interviews';
   return (
     <div className="border-t border-hairline pt-12">
+      <Inbox className="h-5 w-5 text-ink-tertiary mb-4" aria-hidden="true" />
       <p className="font-serif italic text-section text-ink-secondary [text-wrap:pretty]">
         No {noun} in this period. Upload a debrief or widen the range above to see your
         patterns.
@@ -133,8 +135,8 @@ function MirrorHeader({
 }) {
   const { manager, summary, periodOptions } = data;
   return (
-    <div className="pt-10 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
+    <div className="pt-8 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">Pattern Mirror</div>
           <h1 className="font-serif text-page text-ink leading-tight mb-3">{manager.name}</h1>

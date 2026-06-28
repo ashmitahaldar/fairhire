@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getAuth } from '@clerk/express';
 import { z } from 'zod';
 import { clerkAuth, attachManager } from '../middleware/requireAuth';
-import { systemPrisma } from '../lib/prisma';
+import { systemPrisma, withManagerContext } from '../lib/prisma';
 
 export const authRouter = Router();
 
@@ -65,4 +65,50 @@ authRouter.post('/sync', clerkAuth, async (req, res) => {
 authRouter.get('/me', clerkAuth, attachManager, (req, res) => {
   const { id, name, email, role, orgId, deptId } = req.manager;
   res.json({ id, name, email, role, orgId, deptId });
+});
+
+// GET /auth/departments
+// Org-scoped list of divisions, for the division picker on the account page.
+// Read through withManagerContext so the departments SELECT policy scopes the
+// result to the caller's organisation — never another org's divisions.
+authRouter.get('/departments', clerkAuth, attachManager, async (req, res) => {
+  const departments = await withManagerContext(req.manager.id, (tx) =>
+    tx.department.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+  );
+  res.json(departments);
+});
+
+// PATCH /auth/me
+// Lets a manager move themselves to a different division within their own org.
+// Only deptId is mutable here. Role is a privilege boundary and is never
+// accepted on this path (it's set on create only via /sync), even though the
+// managers UPDATE RLS policy would technically permit changing it.
+const patchMeBody = z.object({ deptId: z.string().min(1) });
+
+authRouter.patch('/me', clerkAuth, attachManager, async (req, res) => {
+  const parsed = patchMeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const { deptId } = parsed.data;
+
+  const updated = await withManagerContext(req.manager.id, async (tx) => {
+    // The departments SELECT policy is org-scoped, so a division from another
+    // org (or a bogus id) resolves to null here — a manager can only move to a
+    // division inside their own organisation.
+    const dept = await tx.department.findUnique({ where: { id: deptId }, select: { id: true } });
+    if (!dept) return null;
+    return tx.manager.update({
+      where: { id: req.manager.id },
+      data: { deptId },
+      select: { id: true, name: true, email: true, role: true, orgId: true, deptId: true },
+    });
+  });
+
+  if (!updated) {
+    res.status(400).json({ error: 'That division does not belong to your organisation' });
+    return;
+  }
+  res.json(updated);
 });
