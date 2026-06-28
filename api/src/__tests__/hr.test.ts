@@ -10,7 +10,6 @@ jest.mock('@clerk/express', () => ({
 
 jest.mock('../lib/prisma', () => ({
   prisma: {
-    meeting: { findMany: jest.fn(), findUnique: jest.fn() },
     $queryRaw: jest.fn(),
   },
   systemPrisma: {
@@ -30,38 +29,130 @@ const app = createApp();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // The HR aggregators read the SECURITY DEFINER functions through the
+  // context transaction; the mock just runs fn against the prisma stub.
   mockWithManagerContext.mockImplementation(async (_id: string, fn: (tx: unknown) => unknown) =>
-    fn(prisma)
+    fn(prisma),
   );
 });
 
-describe('GET /hr/summary', () => {
-  it('returns aggregate counts when the caller is an hr_admin', async () => {
+describe('GET /hr/flags', () => {
+  it('returns org-level flag aggregates with deltas for an hr_admin', async () => {
     mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
     mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
 
-    // Four $queryRaw calls in the route, matched in Promise.all order
+    // aggregateHrFlags runs hr_flag_summary twice — current window, then
+    // previous window (for the delta).
     mockQueryRaw
-      .mockResolvedValueOnce([{ total: BigInt(33), dismissed: BigInt(3) }])
-      .mockResolvedValueOnce([{ total: BigInt(12) }])
-      .mockResolvedValueOnce([{ flag_type: 'criteria_drift', count: BigInt(11) }])
-      .mockResolvedValueOnce([{ outcome: 'rejected', count: BigInt(8) }]);
+      .mockResolvedValueOnce([
+        { flag_type: 'criteria_drift', count: BigInt(11), dismissed: BigInt(1) },
+        { flag_type: 'age_bias', count: BigInt(4), dismissed: BigInt(0) },
+      ])
+      .mockResolvedValueOnce([
+        { flag_type: 'criteria_drift', count: BigInt(8), dismissed: BigInt(2) },
+        { flag_type: 'age_bias', count: BigInt(2), dismissed: BigInt(0) },
+      ]);
 
-    const res = await request(app).get('/hr/summary');
+    const res = await request(app).get('/hr/flags?period=90d');
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
-      flags: {
-        total: 33,
-        dismissed: 3,
-        byType: [{ type: 'criteria_drift', count: 11 }],
-      },
-      decisions: {
-        total: 12,
-        byOutcome: [{ outcome: 'rejected', count: 8 }],
-      },
+      period: '90d',
+      total: 15,
+      dismissed: 1,
+      byType: [
+        { type: 'criteria_drift', count: 11, dismissed: 1, delta: 3 },
+        { type: 'age_bias', count: 4, dismissed: 0, delta: 2 },
+      ],
     });
-    // Confirm no individual rows are present anywhere in the response body
+    // No individual rows / manager identity anywhere in the response.
+    expect(JSON.stringify(res.body)).not.toMatch(/managerId|clerkUserId|excerpt|reasoning/);
+  });
+
+  it('rejects an invalid period', async () => {
+    mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
+
+    const res = await request(app).get('/hr/flags?period=bogus');
+
+    expect(res.status).toBe(400);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for a regular manager', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app).get('/hr/flags');
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
+    // Database is never touched when the role check fails.
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /hr/decisions', () => {
+  it('returns org-level decision-outcome aggregates for an hr_admin', async () => {
+    mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
+
+    mockQueryRaw.mockResolvedValueOnce([
+      { outcome: 'rejected', count: BigInt(8) },
+      { outcome: 'hired', count: BigInt(4) },
+    ]);
+
+    const res = await request(app).get('/hr/decisions?period=30d');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      period: '30d',
+      total: 12,
+      byOutcome: [
+        { outcome: 'rejected', count: 8 },
+        { outcome: 'hired', count: 4 },
+      ],
+    });
+  });
+
+  it('returns 403 for a regular manager', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app).get('/hr/decisions');
+
+    expect(res.status).toBe(403);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /hr/demographics', () => {
+  it('returns org-level composition by race for an hr_admin', async () => {
+    mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
+
+    mockQueryRaw.mockResolvedValueOnce([
+      { race: 'malay', applied: BigInt(5), hired: BigInt(1), rejected: BigInt(3) },
+      { race: 'chinese', applied: BigInt(8), hired: BigInt(4), rejected: BigInt(1) },
+      { race: 'unknown', applied: BigInt(2), hired: BigInt(0), rejected: BigInt(0) },
+    ]);
+
+    const res = await request(app).get('/hr/demographics?period=12m');
+
+    expect(res.status).toBe(200);
+    expect(res.body.period).toBe('12m');
+    // Canonical race ordering (chinese before malay), 'unknown' last.
+    expect(res.body.byRace.map((r: { race: string }) => r.race)).toEqual([
+      'chinese',
+      'malay',
+      'unknown',
+    ]);
+    expect(res.body.byRace[0]).toMatchObject({
+      race: 'chinese',
+      applied: 8,
+      hired: 4,
+      rejected: 1,
+    });
     expect(JSON.stringify(res.body)).not.toMatch(/managerId|clerkUserId|excerpt|reasoning/);
   });
 
@@ -69,11 +160,9 @@ describe('GET /hr/summary', () => {
     mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
     mockSystemManagerFindUnique.mockResolvedValue(managerA);
 
-    const res = await request(app).get('/hr/summary');
+    const res = await request(app).get('/hr/demographics');
 
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: 'Forbidden' });
-    // Database should never be hit when role check fails
     expect(mockQueryRaw).not.toHaveBeenCalled();
   });
 });

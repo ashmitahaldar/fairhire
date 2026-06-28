@@ -1,54 +1,67 @@
 import { Router } from 'express';
-import { prisma } from '../lib/prisma';
+import { z } from 'zod';
+import { MIRROR_PERIODS } from '@fairhire/shared';
+import { withManagerContext } from '../lib/prisma';
 import { requireRole } from '../middleware/requireRole';
+import {
+  aggregateHrDecisions,
+  aggregateHrDemographics,
+  aggregateHrFlags,
+} from '../hr/aggregator';
 
 export const hrRouter = Router();
 
+// Every /hr endpoint is HR-admin only. The role gate is enforced here, not
+// just by hiding the nav link — a regular manager hitting these directly gets
+// a 403.
 hrRouter.use(requireRole('hr_admin'));
 
-// GET /hr/summary
-// Returns org-level aggregate counts only. Individual manager rows and flag
-// content are never returned from this namespace — enforced here, not just RLS.
-hrRouter.get('/summary', async (req, res) => {
-  const orgId = req.manager.orgId;
+// Period filtering matches the Pattern Mirror (30d/90d/12m, default 90d).
+const querySchema = z.object({
+  period: z.enum(MIRROR_PERIODS).default('90d'),
+});
 
-  // All queries are aggregate — no individual rows exposed
-  const [flagCounts, decisionCounts, flagsByType, decisionsByOutcome] = await Promise.all([
-    prisma.$queryRaw<{ total: bigint; dismissed: bigint }[]>`
-      SELECT COUNT(*)::bigint AS total,
-             COUNT(*) FILTER (WHERE dismissed = true)::bigint AS dismissed
-      FROM flags
-      WHERE org_id = ${orgId}
-    `,
-    prisma.$queryRaw<{ total: bigint }[]>`
-      SELECT COUNT(*)::bigint AS total
-      FROM decisions
-      WHERE org_id = ${orgId}
-    `,
-    prisma.$queryRaw<{ flag_type: string; count: bigint }[]>`
-      SELECT flag_type, COUNT(*)::bigint AS count
-      FROM flags
-      WHERE org_id = ${orgId}
-      GROUP BY flag_type
-      ORDER BY count DESC
-    `,
-    prisma.$queryRaw<{ outcome: string; count: bigint }[]>`
-      SELECT outcome, COUNT(*)::bigint AS count
-      FROM decisions
-      WHERE org_id = ${orgId}
-      GROUP BY outcome
-    `,
-  ]);
+// All three handlers read the org-level SECURITY DEFINER aggregate functions
+// (prisma/manual/005_hr_aggregates.sql) INSIDE withManagerContext so the
+// session's current_manager_id() resolves — this is what scopes the functions
+// to the caller's org, and also what fixes the prior bug where the route
+// queried app_user without context and RLS returned all zeros.
+//
+// The functions expose only aggregate columns, so no individual manager's
+// rows, flag excerpts, or reasoning can be returned from this namespace.
 
-  res.json({
-    flags: {
-      total: Number(flagCounts[0]?.total ?? 0),
-      dismissed: Number(flagCounts[0]?.dismissed ?? 0),
-      byType: flagsByType.map((r) => ({ type: r.flag_type, count: Number(r.count) })),
-    },
-    decisions: {
-      total: Number(decisionCounts[0]?.total ?? 0),
-      byOutcome: decisionsByOutcome.map((r) => ({ outcome: r.outcome, count: Number(r.count) })),
-    },
-  });
+hrRouter.get('/flags', async (req, res) => {
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const data = await withManagerContext(req.manager.id, (tx) =>
+    aggregateHrFlags(tx, parsed.data.period),
+  );
+  res.json(data);
+});
+
+hrRouter.get('/decisions', async (req, res) => {
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const data = await withManagerContext(req.manager.id, (tx) =>
+    aggregateHrDecisions(tx, parsed.data.period),
+  );
+  res.json(data);
+});
+
+hrRouter.get('/demographics', async (req, res) => {
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const data = await withManagerContext(req.manager.id, (tx) =>
+    aggregateHrDemographics(tx, parsed.data.period),
+  );
+  res.json(data);
 });

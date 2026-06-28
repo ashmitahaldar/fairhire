@@ -224,3 +224,46 @@ export interface MirrorData {
   languageFlags: LanguageFlagRow[];
   nudges: MirrorNudge[];
 }
+
+// ── HR aggregate contract (org-level, anonymised) ──────────────────────────
+// Shapes returned by the /hr/* endpoints. Every field is an org-level
+// aggregate — there is no manager identity, excerpt, or reasoning anywhere in
+// the contract by construction (the backing SQL functions expose only counts).
+// Period-filtered like the Mirror; deltas on flags are vs the previous window.
+
+export interface HrFlagTypeCount {
+  type: FlagType;
+  count: number;
+  dismissed: number;
+  delta: number | null;         // current − previous window; null when prior window sparse
+}
+
+export interface HrFlagsResponse {
+  period: MirrorPeriod;
+  total: number;
+  dismissed: number;
+  byType: HrFlagTypeCount[];
+}
+
+export interface HrDecisionOutcomeCount {
+  outcome: DecisionOutcome;
+  count: number;
+}
+
+export interface HrDecisionsResponse {
+  period: MirrorPeriod;
+  total: number;
+  byOutcome: HrDecisionOutcomeCount[];
+}
+
+export interface HrDemographicRow {
+  race: RaceSegmentKey;         // Race | 'unknown'
+  applied: number;
+  hired: number;
+  rejected: number;
+}
+
+export interface HrDemographicsResponse {
+  period: MirrorPeriod;
+  byRace: HrDemographicRow[];
+}
