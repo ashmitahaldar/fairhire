@@ -13,7 +13,7 @@ interface SectionProps {
 export function Section({ title, caption, anchor, action, children }: SectionProps) {
   return (
     <section id={anchor} className="mb-16">
-      <div className="flex items-end justify-between gap-8 mb-6 pb-3 border-b border-hairline">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 mb-6 pb-3 border-b border-hairline">
         <div className="min-w-0 flex-1">
           <h2 className="font-serif text-section text-ink leading-tight">{title}</h2>
           {caption && (

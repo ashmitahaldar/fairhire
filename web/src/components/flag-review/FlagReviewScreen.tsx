@@ -300,7 +300,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
           <InitialsAvatar initials={initialsOf(manager.name)} />
         </div>
 
-        <div className="flex items-end justify-between gap-8 mb-8">
+        <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
           <div className="min-w-0">
             <h1 className="font-serif text-page text-ink leading-tight mb-2">{meeting.candidateName}</h1>
             {meeting.candidateRole && (
@@ -369,7 +369,9 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
 
       <div className="fh-hairline mb-10" />
 
-      <div className="grid grid-cols-[640px_1fr] gap-16 pb-32">
+      {/* Transcript + gutter sit side by side on wide screens; below lg the
+          640px transcript would crush the gutter, so they stack. */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[640px_1fr] lg:gap-16 pb-32">
         {/* Transcript column */}
         <div className="min-w-0">
           <div className="flex items-baseline justify-between mb-5 pb-3 border-b border-hairline">

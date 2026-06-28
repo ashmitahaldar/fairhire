@@ -77,7 +77,7 @@ function Header({
 }) {
   return (
     <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">HR Overview</div>
           <h1 className="font-serif text-page text-ink leading-tight mb-3">

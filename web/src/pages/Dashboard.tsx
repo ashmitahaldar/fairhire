@@ -51,7 +51,7 @@ export default function Dashboard() {
 function Header({ firstName }: { firstName: string }) {
   return (
     <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
             Decision companion
@@ -112,8 +112,8 @@ function EmptyState() {
 function MeetingsTable({ meetings }: { meetings: MeetingListItem[] }) {
   const navigate = useNavigate();
   return (
-    <div className="border-t border-hairline">
-      <table className="w-full text-base">
+    <div className="border-t border-hairline overflow-x-auto">
+      <table className="w-full text-base min-w-[640px]">
         <thead>
           <tr className="font-serif italic text-sm text-ink-tertiary text-left">
             <th className="py-3 pr-4 font-normal border-b border-hairline w-[12%]">Date</th>

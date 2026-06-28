@@ -143,7 +143,7 @@ export default function Candidates() {
 function Header({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
             Candidates
@@ -226,8 +226,8 @@ interface TableProps {
 
 function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: TableProps) {
   return (
-    <div className="border-t border-hairline">
-      <table className="w-full text-base">
+    <div className="border-t border-hairline overflow-x-auto">
+      <table className="w-full text-base min-w-[720px]">
         <thead>
           <tr className="font-serif italic text-sm text-ink-tertiary text-left">
             <Th onClick={() => onToggleSort('name')} active={sort.key === 'name'} dir={sort.dir}>

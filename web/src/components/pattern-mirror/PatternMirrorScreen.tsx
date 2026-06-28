@@ -134,7 +134,7 @@ function MirrorHeader({
   const { manager, summary, periodOptions } = data;
   return (
     <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">Pattern Mirror</div>
           <h1 className="font-serif text-page text-ink leading-tight mb-3">{manager.name}</h1>
@@ -235,7 +235,7 @@ function OverviewTab({
       </Section>
 
       <div
-        className={`${showPipeline ? 'grid grid-cols-[1.05fr_0.95fr] gap-16' : ''} mb-16`}
+        className={`${showPipeline ? 'grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16' : ''} mb-16`}
       >
         {showPipeline && (
           <Section
@@ -341,7 +341,7 @@ function LanguageTab({
         caption="Reflections from your language data"
         anchor="lang-nudges"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {langNudges.map((n) => (
             <NudgeCard
               key={n.id}
@@ -390,7 +390,7 @@ function DemographicsTab({
       </Section>
 
       <Section title="Reflections" anchor="demo-nudges">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {demoNudges.map((n) => (
             <NudgeCard
               key={n.id}

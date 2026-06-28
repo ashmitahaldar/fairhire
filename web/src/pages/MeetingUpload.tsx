@@ -401,7 +401,7 @@ interface PromotionFieldsetProps {
 function PromotionFieldset({ fields, onChange }: PromotionFieldsetProps) {
   const set = (patch: Partial<PromotionFields>) => onChange({ ...fields, ...patch });
   return (
-    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
       <div>
         <label htmlFor="currentRole" className="fh-label block mb-2">
           Current role / level
@@ -494,7 +494,7 @@ function AddCandidateForm({ onCreated, onCancel }: AddCandidateFormProps) {
 
   return (
     <div className="bg-surface-sunk p-4 mb-3 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <input
           type="text"
           value={name}
