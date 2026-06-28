@@ -21,6 +21,12 @@ type PrismaLib = typeof import('../lib/prisma');
 const ENABLED = process.env.INTEGRATION === '1';
 const d = ENABLED ? describe : describe.skip;
 
+// The beforeAll builds a whole second org via ~11 sequential round-trips to the
+// Supabase Tokyo DB; under full-suite parallelism that overshoots jest's 5s
+// hook default. Match the latency tolerance the app already uses for this DB
+// (withManagerContext runs at 30s) so the documented command runs green.
+if (ENABLED) jest.setTimeout(60_000);
+
 d('tenant isolation RLS (integration)', () => {
   let lib: PrismaLib;
 

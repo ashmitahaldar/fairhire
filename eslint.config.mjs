@@ -24,6 +24,16 @@ export default [
     },
   },
   {
+    // CommonJS helper scripts (e.g. jest.setup.cjs) — Node globals, no TS.
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     ignores: ['**/dist/**', '**/node_modules/**', '**/.vercel/**'],
   },
 ];
