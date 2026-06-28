@@ -57,6 +57,12 @@ export function PatternMirrorScreen({
     }
   };
 
+  // Zero interviews in the selected period: the editorial sentence and every
+  // chart would render against empty data. Show one editorial empty state
+  // instead, keeping the header (period selector + mode toggle) so the user
+  // can widen the range or switch mode.
+  const noData = data.summary.interviewsCount === 0;
+
   return (
     <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${meetingType} · ${tab}`}>
       <MirrorHeader
@@ -66,22 +72,47 @@ export function PatternMirrorScreen({
         onChangeMeetingType={onMeetingTypeChange}
         onChangePeriod={onPeriodChange ?? (() => {})}
       />
-      <TabBar tabs={tabs} active={tab} onChange={setTab} />
-      <div className="pt-10 pb-32">
-        {tab === 'Overview' && (
-          <OverviewTab
-            data={data}
-            meetingType={meetingType}
-            onOpenAllDecisions={() => setTab('Decisions')}
-            onSeeInstances={seeInstances}
-          />
-        )}
-        {tab === 'Decisions' && <DecisionsTab data={data} />}
-        {tab === 'Language' && <LanguageTab data={data} onSeeInstances={seeInstances} />}
-        {tab === 'Demographics' && <DemographicsTab data={data} onSeeInstances={seeInstances} />}
-      </div>
+      {noData ? (
+        <EmptyPeriod meetingType={meetingType} />
+      ) : (
+        <>
+          <TabBar tabs={tabs} active={tab} onChange={setTab} />
+          <div className="pt-10 pb-32">
+            {tab === 'Overview' && (
+              <OverviewTab
+                data={data}
+                meetingType={meetingType}
+                onOpenAllDecisions={() => setTab('Decisions')}
+                onSeeInstances={seeInstances}
+              />
+            )}
+            {tab === 'Decisions' && <DecisionsTab data={data} />}
+            {tab === 'Language' && <LanguageTab data={data} onSeeInstances={seeInstances} />}
+            {tab === 'Demographics' && <DemographicsTab data={data} onSeeInstances={seeInstances} />}
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+// Whole-screen empty state when there are no interviews/discussions in the
+// selected period. Editorial tone, consistent with the Candidates empty state.
+function EmptyPeriod({ meetingType }: { meetingType: MeetingType }) {
+  const noun = meetingType === 'promotion' ? 'promotion discussions' : 'interviews';
+  return (
+    <div className="border-t border-hairline pt-12">
+      <p className="font-serif italic text-section text-ink-secondary [text-wrap:pretty]">
+        No {noun} in this period. Upload a debrief or widen the range above to see your
+        patterns.
+      </p>
+    </div>
+  );
+}
+
+// Inline empty note for a single section (e.g. no flags raised this period).
+function EmptyNote({ children }: { children: ReactNode }) {
+  return <p className="font-serif italic text-base text-ink-tertiary">{children}</p>;
 }
 
 // ── Header: manager + range + the editorial summary sentence ───────────────
@@ -120,15 +151,17 @@ function MirrorHeader({
         </div>
       </div>
 
-      <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty]">
-        Across{' '}
-        <Stat>{summary.interviewsCount}</Stat> interviews and{' '}
-        <Stat>{summary.rolesCount}</Stat> roles this quarter, your most frequent flag category was{' '}
-        <em className="text-accent">“{summary.topCategory}”</em> (
-        <Stat>{summary.topCategoryCount}</Stat> instances). On average you flagged{' '}
-        <Stat>{summary.avgFlagsPerInterview}</Stat> spans per interview, and dismissed{' '}
-        <Stat>{summary.dismissedFlags}</Stat> of <Stat>{summary.totalFlags}</Stat> flags overall.
-      </p>
+      {summary.interviewsCount > 0 && (
+        <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty]">
+          Across{' '}
+          <Stat>{summary.interviewsCount}</Stat> interviews and{' '}
+          <Stat>{summary.rolesCount}</Stat> roles this quarter, your most frequent flag category was{' '}
+          <em className="text-accent">“{summary.topCategory}”</em> (
+          <Stat>{summary.topCategoryCount}</Stat> instances). On average you flagged{' '}
+          <Stat>{summary.avgFlagsPerInterview}</Stat> spans per interview, and dismissed{' '}
+          <Stat>{summary.dismissedFlags}</Stat> of <Stat>{summary.totalFlags}</Stat> flags overall.
+        </p>
+      )}
     </div>
   );
 }
@@ -260,7 +293,11 @@ function OverviewTab({
           caption="Category count vs previous 90 days"
           anchor="language"
         >
-          <LollipopChart data={data.languageFlags} />
+          {data.languageFlags.length === 0 ? (
+            <EmptyNote>No language flags raised this period.</EmptyNote>
+          ) : (
+            <LollipopChart data={data.languageFlags} />
+          )}
         </Section>
       </div>
 
@@ -328,6 +365,9 @@ function LanguageTab({
   onSeeInstances: (linkTo: string | undefined) => void;
 }) {
   const langNudges = data.nudges.filter((n) => /Language|Self-pattern/i.test(n.tag));
+  if (data.languageFlags.length === 0) {
+    return <EmptyNote>No language flags raised this period.</EmptyNote>;
+  }
   return (
     <>
       <Section

@@ -897,10 +897,17 @@ async function main() {
         startedAt: new Date('2026-01-18T16:12:00Z'),
         completedAt: new Date('2026-01-18T16:12:53Z'),
       },
+      // Marcus's clean debrief — completed with no flags. (Previously seeded
+      // as a permanently 'pending' run, which the 1.5s poller spun on forever;
+      // completed + zero flags now demonstrates the clean "No flags raised"
+      // empty state instead.)
       {
         orgId: org.id,
         meetingId: m12.id,
-        status: 'pending',
+        status: 'completed',
+        modelVersion: 'claude-3-5-sonnet-20241022',
+        startedAt: new Date('2026-03-05T10:00:00Z'),
+        completedAt: new Date('2026-03-05T10:00:41Z'),
       },
     ],
   });

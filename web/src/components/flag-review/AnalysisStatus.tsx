@@ -123,11 +123,22 @@ export function AnalysisStatus({
         style={{ '--progress': `${progressPct}%`, opacity: analysing ? 1 : 0.35 } as CSSProperties}
       />
       {analysing && (
-        // Wait-state guidance per Section 4 of the Week 5 plan. The
-        // user can navigate away and come back; the meeting query
-        // resumes polling on remount via TanStack's cache.
+        // Wait-state guidance per Section 4 of the Week 5 plan. The user can
+        // navigate away and come back; the meeting query resumes polling on
+        // remount via TanStack's cache. Past ~90s a run is taking unusually
+        // long — reassure rather than leave the spinner looking stuck.
         <p className="font-serif italic text-sm text-ink-tertiary mt-3">
-          Safe to leave this page — we'll keep analysing in the background.
+          {elapsedMs > 90_000
+            ? "This is taking longer than usual — still working. It's safe to leave this page."
+            : "Safe to leave this page — we'll keep analysing in the background."}
+        </p>
+      )}
+      {!analysing && !failed && error && (
+        // A completed-but-degraded run carries a note in `error` (the LLM was
+        // unavailable, so the result is rules-only). Surface it quietly — the
+        // completed line above otherwise looks identical to a clean run.
+        <p className="font-serif italic text-sm text-ink-tertiary mt-3">
+          Rules-only result — the language model was unavailable for this analysis.
         </p>
       )}
     </div>
