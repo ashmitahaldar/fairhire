@@ -13,6 +13,10 @@ evals/runs/
 npm-debug.log*
 .DS_Store
 
+# Local Claude Code config and session working files — never committed.
+.claude/
+scratchpad/
+
 # Initial design-tool exports kept for posterity (see folder README).
 # Already-tracked files stay tracked; this rule only stops future drops
 # from polluting `git status`.
