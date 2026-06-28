@@ -10,6 +10,11 @@
 //
 // To run: see rls.integration.test.ts (needs a DB with 001–005 applied).
 
+// `export {}` forces module scope: without a top-level import/export, TS treats
+// this file as a global script and its `PrismaLib`/`ENABLED`/`d` collide with the
+// identically-named declarations in candidates.integration.test.ts (TS2300).
+export {};
+
 type PrismaLib = typeof import('../lib/prisma');
 
 const ENABLED = process.env.INTEGRATION === '1';
