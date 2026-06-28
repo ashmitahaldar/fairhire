@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useManager } from '../lib/ManagerContext';
 import { useMeetings, type AnalysisStatus, type MeetingListItem } from '../lib/meetingsApi';
-import { TableSkeleton } from '../components/shared/primitives';
+import { InlineError, TableSkeleton } from '../components/shared/primitives';
 
 // Decision Companion home — lists every meeting the signed-in manager has
 // uploaded, newest first. Each row links to the per-meeting flag-review.
@@ -22,16 +22,11 @@ export default function Dashboard() {
       {query.isLoading && <TableSkeleton />}
 
       {query.isError && (
-        <p className="font-mono text-sm text-ink-secondary">
-          Couldn’t load your meetings.{' '}
-          <button
-            type="button"
-            onClick={() => void query.refetch()}
-            className="text-ink font-medium hover:text-accent transition-colors duration-120"
-          >
-            Retry
-          </button>
-        </p>
+        <InlineError
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          fallback="Couldn’t load your meetings."
+        />
       )}
 
       {query.data && meetings.length === 0 && <EmptyState />}

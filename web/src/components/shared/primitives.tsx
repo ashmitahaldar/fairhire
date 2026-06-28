@@ -1,8 +1,38 @@
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
+import { ApiError } from '../../lib/api';
 
 // Shared design-system primitives, ported from the design drop's components.jsx
 // (Object.assign(window,…) globals → named ES exports). Only the primitives the
 // flag-review screen uses are ported; add others here as screens need them.
+
+// Inline "couldn't load X" line with a Retry affordance, used by every list/
+// query screen so a failed fetch reads the same everywhere. Surfaces
+// ApiError.userMessage (network vs. server vs. session, the single source of
+// error copy) and falls back to a caller-supplied label for non-ApiError
+// throws (e.g. a missing auth token).
+export function InlineError({
+  error,
+  onRetry,
+  fallback = 'Something went wrong.',
+}: {
+  error: unknown;
+  onRetry: () => void;
+  fallback?: string;
+}) {
+  const message = error instanceof ApiError ? error.userMessage : fallback;
+  return (
+    <p className="font-mono text-sm text-ink-secondary" role="alert">
+      {message}{' '}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="text-ink font-medium hover:text-accent transition-colors duration-120"
+      >
+        Retry
+      </button>
+    </p>
+  );
+}
 
 interface ConfidenceIndicatorProps {
   level: string;

@@ -16,6 +16,12 @@ export function AuthGuard() {
   const { user } = useUser();
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [manager, setManager] = useState<ManagerProfile | null>(null);
+  // The failure that put us in 'error', so the screen can name what actually
+  // went wrong (network vs. server) instead of a single catch-all line.
+  const [authError, setAuthError] = useState<unknown>(null);
+  // Which step failed — loading the existing account vs. provisioning a new
+  // one — so the headline matches what the user just tried to do.
+  const [errorPhase, setErrorPhase] = useState<'loading' | 'login'>('loading');
 
   // Existing users have a Manager row already, so /auth/me returns it and we
   // skip the picker. A brand-new Clerk user has no row → /auth/me 404s → we
@@ -39,6 +45,8 @@ export function AuthGuard() {
         if (err instanceof ApiError && err.status === 404) {
           setSyncState('needsRole');
         } else {
+          setAuthError(err);
+          setErrorPhase('loading');
           setSyncState('error');
         }
       });
@@ -68,7 +76,11 @@ export function AuthGuard() {
           setManager(profile);
           setSyncState('done');
         })
-        .catch(() => setSyncState('error'));
+        .catch((err) => {
+          setAuthError(err);
+          setErrorPhase('login');
+          setSyncState('error');
+        });
     },
     [user, getToken]
   );
@@ -77,6 +89,7 @@ export function AuthGuard() {
   // 'idle'), so a transient failure is recoverable without a full reload.
   const retry = () => {
     setManager(null);
+    setAuthError(null);
     setSyncState('idle');
   };
 
@@ -95,7 +108,8 @@ export function AuthGuard() {
     return <RolePicker onChoose={handleChooseRole} submitting={syncState === 'syncing'} />;
   }
   if (syncState === 'idle' || syncState === 'checking') return <LoadingScreen />;
-  if (syncState === 'error') return <ErrorScreen onRetry={retry} />;
+  if (syncState === 'error')
+    return <ErrorScreen error={authError} phase={errorPhase} onRetry={retry} />;
 
   return (
     <ManagerContext.Provider value={manager!}>
@@ -121,15 +135,37 @@ function LoadingScreen() {
   );
 }
 
-function ErrorScreen({ onRetry }: { onRetry: () => void }) {
+function ErrorScreen({
+  error,
+  phase,
+  onRetry,
+}: {
+  error: unknown;
+  phase: 'loading' | 'login';
+  onRetry: () => void;
+}) {
+  const apiError = error instanceof ApiError ? error : null;
+
+  // Headline names what the user just tried to do; a network failure overrides
+  // both since the cause isn't account-specific. The body comes from
+  // ApiError.userMessage (the one place error copy lives) so the same failure
+  // reads the same on every screen.
+  const title = apiError?.isNetworkError
+    ? "We can’t reach the server"
+    : phase === 'login'
+      ? "We couldn’t set up your account"
+      : "We couldn’t load your workspace";
+
+  const message =
+    apiError?.userMessage ??
+    'This is usually temporary. Try again, or refresh the page if it keeps happening.';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-      <div className="fh-card w-full max-w-md p-8 text-center shadow-float">
-        <p className="fh-label mb-1">Something went wrong</p>
-        <h1 className="font-serif text-section text-ink mb-2">We couldn’t set up your account</h1>
-        <p className="text-sm text-ink-secondary mb-6 [text-wrap:pretty]">
-          This is usually temporary. Try again, or refresh the page if it keeps happening.
-        </p>
+      <div className="fh-card w-full max-w-md p-8 text-center shadow-float" role="alert">
+        <p className="fh-label mb-1">FairHire</p>
+        <h1 className="font-serif text-section text-ink mb-2">{title}</h1>
+        <p className="text-sm text-ink-secondary mb-6 [text-wrap:pretty]">{message}</p>
         <button
           type="button"
           onClick={onRetry}

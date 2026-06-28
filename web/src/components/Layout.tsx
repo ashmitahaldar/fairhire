@@ -37,7 +37,10 @@ export function Layout() {
           <NavLink
             to="/"
             end
-            className="font-serif text-body text-ink leading-none shrink-0 mr-auto"
+            // Serif italic wordmark — the same treatment as the loading,
+            // role-picker, and error screens (fh-label), so the FairHire mark
+            // reads identically everywhere it appears.
+            className="font-serif italic text-body text-ink leading-none shrink-0 mr-auto"
           >
             FairHire
           </NavLink>

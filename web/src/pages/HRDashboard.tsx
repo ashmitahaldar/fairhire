@@ -15,7 +15,7 @@ import { TimeRangeSelector } from '../components/pattern-mirror/TimeRangeSelecto
 import { LollipopChart } from '../components/pattern-mirror/charts/LollipopChart';
 import { StackedBarChart } from '../components/pattern-mirror/charts/StackedBarChart';
 import { TabBar } from '../components/shared/TabBar';
-import { ChartSkeleton } from '../components/shared/primitives';
+import { ChartSkeleton, InlineError } from '../components/shared/primitives';
 
 // HR org-level view. Mirrors the Pattern Mirror's chrome (period selector,
 // tab bar, editorial header) but reads the anonymised /hr/* aggregates — no
@@ -103,21 +103,6 @@ function Loading() {
   return <ChartSkeleton />;
 }
 
-function LoadError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <p className="font-mono text-sm text-ink-secondary">
-      Couldn’t load this data.{' '}
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-ink font-medium hover:text-accent transition-colors duration-120"
-      >
-        Retry
-      </button>
-    </p>
-  );
-}
-
 function Empty({ children }: { children: ReactNode }) {
   return <p className="font-serif italic text-base text-ink-tertiary">{children}</p>;
 }
@@ -158,8 +143,10 @@ function OverviewTab({
   decisions: ReturnType<typeof useHrDecisions>;
 }) {
   if (flags.isLoading || decisions.isLoading) return <Loading />;
-  if (flags.isError) return <LoadError onRetry={() => void flags.refetch()} />;
-  if (decisions.isError) return <LoadError onRetry={() => void decisions.refetch()} />;
+  if (flags.isError)
+    return <InlineError error={flags.error} onRetry={() => void flags.refetch()} fallback="Couldn’t load this data." />;
+  if (decisions.isError)
+    return <InlineError error={decisions.error} onRetry={() => void decisions.refetch()} fallback="Couldn’t load this data." />;
   if (!flags.data || !decisions.data) return null;
 
   const f = flags.data;
@@ -243,7 +230,8 @@ function OutcomeBreakdown({ data }: { data: HrDecisionsResponse }) {
 
 function FlagsTab({ flags }: { flags: ReturnType<typeof useHrFlags> }) {
   if (flags.isLoading) return <Loading />;
-  if (flags.isError) return <LoadError onRetry={() => void flags.refetch()} />;
+  if (flags.isError)
+    return <InlineError error={flags.error} onRetry={() => void flags.refetch()} fallback="Couldn’t load this data." />;
   if (!flags.data) return null;
 
   const f = flags.data;
@@ -270,7 +258,14 @@ function DemographicsTab({
   demographics: ReturnType<typeof useHrDemographics>;
 }) {
   if (demographics.isLoading) return <Loading />;
-  if (demographics.isError) return <LoadError onRetry={() => void demographics.refetch()} />;
+  if (demographics.isError)
+    return (
+      <InlineError
+        error={demographics.error}
+        onRetry={() => void demographics.refetch()}
+        fallback="Couldn’t load this data."
+      />
+    );
   if (!demographics.data) return null;
 
   const pipeline = demographicsToPipeline(demographics.data);

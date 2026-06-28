@@ -6,7 +6,7 @@ import {
 } from '../lib/candidatesApi';
 import { CandidateRow } from '../components/candidates/CandidateRow';
 import { CandidateModal } from '../components/candidates/CandidateModal';
-import { TableSkeleton } from '../components/shared/primitives';
+import { InlineError, TableSkeleton } from '../components/shared/primitives';
 
 // Candidates CRUD page. Lists every candidate in the org, sortable by
 // header click and filterable via search box. Add/Edit open the same
@@ -88,16 +88,11 @@ export default function Candidates() {
       {query.isLoading && <TableSkeleton />}
 
       {query.isError && (
-        <p className="font-mono text-sm text-ink-secondary">
-          Couldn’t load candidates.{' '}
-          <button
-            type="button"
-            onClick={() => void query.refetch()}
-            className="text-ink font-medium hover:text-accent transition-colors duration-120"
-          >
-            Retry
-          </button>
-        </p>
+        <InlineError
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          fallback="Couldn’t load candidates."
+        />
       )}
 
       {softDelete.isError && (
