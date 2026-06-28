@@ -20,6 +20,7 @@ function row(
     lastDecisionOutcome: null,
     lastDecisionMeetingType: null,
     canModify: false,
+    flagCount: { total: 0, own: 0 },
     ...overrides,
   };
 }
@@ -89,6 +90,21 @@ describe('Candidates page', () => {
     expect(screen.getByText('Malay · M')).toBeTruthy();
     expect(screen.getByText('Hired')).toBeTruthy();
     expect(screen.getByText('3')).toBeTruthy();
+  });
+
+  it('shows the org-wide flag count, with the by-you split only when others contributed', async () => {
+    mockCandidates([
+      row({ id: 'c1', name: 'Ahmad Faris', flagCount: { total: 12, own: 3 } }),
+      row({ id: 'c2', name: 'Siti Nurhaliza', flagCount: { total: 4, own: 4 } }),
+    ]);
+
+    renderPage();
+
+    await screen.findByText('Ahmad Faris');
+    // c1: 9 of 12 flags came from other managers — surface the split.
+    expect(screen.getByText(/3 by you/)).toBeTruthy();
+    // c2: every flag is the caller's own — show just the total, no split.
+    expect(screen.getByText('4')).toBeTruthy();
   });
 
   it('labels a promotion outcome as "Promoted" (not blank) using the decision meeting mode', async () => {

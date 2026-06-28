@@ -37,6 +37,25 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// Org-wide flag count. `total` includes flags raised in other managers'
+// debriefs, so a manager sees a candidate's full flag history without seeing
+// any other manager's flag content or identity. When others have contributed
+// (own < total) we surface "· N by you" so the split is legible; the tooltip
+// always carries the full breakdown.
+function FlagCountCell({ flagCount }: { flagCount: CandidateListItem['flagCount'] }) {
+  const { total, own } = flagCount;
+  if (total === 0) {
+    return <span className="text-ink-tertiary italic font-serif">—</span>;
+  }
+  const title = `${total} flag${total === 1 ? '' : 's'} across the organisation · ${own} by you`;
+  return (
+    <span title={title}>
+      {total}
+      {own < total && <span className="text-ink-tertiary"> · {own} by you</span>}
+    </span>
+  );
+}
+
 // Display labels come from the canonical shared map so the Candidates page,
 // the Flag Review decision panel, and the Pattern Mirror summary read the
 // same vocabulary (Hired / Declined / Pending).
@@ -60,6 +79,9 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
       </td>
       <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
         {candidate.meetingCount}
+      </td>
+      <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
+        <FlagCountCell flagCount={candidate.flagCount} />
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-sm">
         {candidate.lastDecisionOutcome ? (

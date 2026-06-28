@@ -48,7 +48,14 @@ interface CandidateRowFromDb {
   meetings: Array<{ meetingId: string }>;
 }
 
-function toWireCandidate(row: CandidateRowFromDb) {
+// flagCount is sourced separately from the candidate_flag_counts() aggregate
+// function, not the Prisma row — the org-wide `total` can't come through the
+// RLS-scoped flag includes. Defaults to zero for candidates with no flags
+// (and for the POST/PATCH responses, where the list refetch is authoritative).
+function toWireCandidate(
+  row: CandidateRowFromDb,
+  flagCount: { total: number; own: number } = { total: 0, own: 0 },
+) {
   const lastDecision = row.decisions[0];
   return {
     id: row.id,
@@ -63,6 +70,9 @@ function toWireCandidate(row: CandidateRowFromDb) {
     // instead of falling through a hiring-only label map.
     lastDecisionMeetingType: lastDecision?.meeting.meetingType ?? null,
     canModify: row.meetings.length > 0,
+    // total = flags raised for this candidate across the whole org (incl.
+    // other managers' debriefs); own = the caller's share. Aggregate only.
+    flagCount,
   };
 }
 
@@ -73,8 +83,8 @@ function toWireCandidate(row: CandidateRowFromDb) {
 // extra fields. canModify is per-row: true if this manager has at least one
 // MeetingCandidate link for the candidate.
 candidatesRouter.get('/', async (req, res) => {
-  const candidates = await withManagerContext(req.manager.id, async (tx) => {
-    return tx.candidate.findMany({
+  const { candidates, counts } = await withManagerContext(req.manager.id, async (tx) => {
+    const candidates = await tx.candidate.findMany({
       where: { deletedAt: null },
       orderBy: { name: 'asc' },
       select: {
@@ -98,9 +108,22 @@ candidatesRouter.get('/', async (req, res) => {
         },
       },
     });
+
+    // Org-wide per-candidate flag counts (incl. other managers'). Read from
+    // the SECURITY DEFINER aggregate function inside the same context tx — the
+    // RLS-scoped includes above only ever see the caller's own flags.
+    const counts = await tx.$queryRaw<
+      Array<{ candidate_id: string; total: bigint; own: bigint }>
+    >`SELECT candidate_id, total, own FROM candidate_flag_counts()`;
+
+    return { candidates, counts };
   });
 
-  res.json(candidates.map(toWireCandidate));
+  const countById = new Map(
+    counts.map((c) => [c.candidate_id, { total: Number(c.total), own: Number(c.own) }]),
+  );
+
+  res.json(candidates.map((row) => toWireCandidate(row, countById.get(row.id))));
 });
 
 // ── POST /candidates ──────────────────────────────────────────────────────

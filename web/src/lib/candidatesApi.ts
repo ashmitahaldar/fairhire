@@ -34,6 +34,10 @@ export interface CandidateListItem {
   // mode-aware outcome label. Null when there's no decision yet.
   lastDecisionMeetingType: MeetingType | null;
   canModify: boolean;
+  // Org-wide flag count for this candidate — total includes flags raised in
+  // other managers' debriefs; own is the caller's share. Aggregate only: no
+  // other manager's flag content or identity is exposed.
+  flagCount: { total: number; own: number };
 }
 
 export function useCandidatesList() {

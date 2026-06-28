@@ -250,6 +250,9 @@ function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: T
             >
               Meetings
             </Th>
+            <th className="py-3 pr-4 font-normal border-b border-hairline text-right">
+              Flags · org-wide
+            </th>
             <th className="py-3 pr-4 font-normal border-b border-hairline">Your last outcome</th>
             <Th
               onClick={() => onToggleSort('createdAt')}

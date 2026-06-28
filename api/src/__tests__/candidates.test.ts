@@ -15,6 +15,8 @@ jest.mock('../lib/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    // GET /candidates also reads candidate_flag_counts() via $queryRaw.
+    $queryRaw: jest.fn(),
   },
   systemPrisma: {
     manager: { findUnique: jest.fn() },
@@ -34,6 +36,7 @@ const mockSystemMeetingCandidateFindFirst = systemPrisma.meetingCandidate
 const mockCandidateFindMany = prisma.candidate.findMany as jest.Mock;
 const mockCandidateCreate = prisma.candidate.create as jest.Mock;
 const mockCandidateUpdate = prisma.candidate.update as jest.Mock;
+const mockQueryRaw = prisma.$queryRaw as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 
 const app = createApp();
@@ -83,6 +86,8 @@ beforeEach(() => {
   mockWithManagerContext.mockImplementation(async (_id: string, fn: (tx: unknown) => unknown) =>
     fn(prisma)
   );
+  // Default: no flag counts. Individual GET tests override to assert merging.
+  mockQueryRaw.mockResolvedValue([]);
 });
 
 describe('GET /candidates', () => {
@@ -107,6 +112,11 @@ describe('GET /candidates', () => {
         ownedByCaller: false,
       }),
     ]);
+    // candidate_flag_counts(): c1 has 5 flags org-wide, 2 of them the
+    // caller's own; c2 has none (absent → defaults to zero).
+    mockQueryRaw.mockResolvedValueOnce([
+      { candidate_id: 'c1', total: BigInt(5), own: BigInt(2) },
+    ]);
 
     const res = await request(app).get('/candidates');
 
@@ -120,6 +130,7 @@ describe('GET /candidates', () => {
       meetingCount: 2,
       lastDecisionOutcome: 'hired',
       canModify: true,
+      flagCount: { total: 5, own: 2 },
     });
     expect(res.body[0]).toMatchObject({ lastDecisionMeetingType: 'hiring' });
     expect(res.body[1]).toMatchObject({
@@ -128,6 +139,7 @@ describe('GET /candidates', () => {
       lastDecisionOutcome: null,
       lastDecisionMeetingType: null,
       meetingCount: 0,
+      flagCount: { total: 0, own: 0 },
     });
   });
 
