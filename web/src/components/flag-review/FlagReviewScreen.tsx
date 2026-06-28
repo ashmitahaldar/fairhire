@@ -91,13 +91,23 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
 
   // Streaming-reveal state
   const [visibleFlagIds, setVisibleFlagIds] = useState<Set<string>>(new Set());
+  // True only while a staggered reveal is actively animating. Drives the
+  // headline counter to climb 0→N in sync with the cards; stays false when an
+  // already-analysed meeting is opened (so the count shows the full total
+  // immediately, no flash).
+  const [revealing, setRevealing] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const prevStatus = useRef<RunStatus | null>(null);
 
   // Reveal flags one-by-one over ~2s (cosmetic — the engine writes them at once).
   const startStaggeredReveal = useCallback(() => {
     setVisibleFlagIds(new Set());
-    const stagger = flags.length > 0 ? Math.min(2000 / flags.length, 320) : 0;
+    if (flags.length === 0) {
+      setRevealing(false);
+      return;
+    }
+    setRevealing(true);
+    const stagger = Math.min(2000 / flags.length, 320);
     const timers = flags.map((f, i) =>
       window.setTimeout(() => {
         setVisibleFlagIds((prev) => {
@@ -107,7 +117,15 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
         });
       }, 200 + i * stagger)
     );
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    // Settle the climbing counter once the last flag has been revealed.
+    const done = window.setTimeout(
+      () => setRevealing(false),
+      200 + (flags.length - 1) * stagger + 60,
+    );
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(done);
+    };
   }, [flags]);
 
   // Elapsed timer while analysing.
@@ -128,6 +146,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
     prevStatus.current = status;
     if (!wasAnalysing) {
       setVisibleFlagIds(new Set(flags.map((f) => f.id)));
+      setRevealing(false);
       return;
     }
     return startStaggeredReveal();
@@ -333,6 +352,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
           error={meeting.analysis.error}
           totalFlags={flags.length}
           revealedFlags={visibleFlags.length}
+          revealing={revealing}
           dismissedCount={dismissedCount}
           onRetry={requestRerun}
         />
