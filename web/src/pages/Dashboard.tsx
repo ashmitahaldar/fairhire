@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useManager } from '../lib/ManagerContext';
 import { useMeetings, type AnalysisStatus, type MeetingListItem } from '../lib/meetingsApi';
+import { TableSkeleton } from '../components/shared/primitives';
 
 // Decision Companion home — lists every meeting the signed-in manager has
 // uploaded, newest first. Each row links to the per-meeting flag-review.
@@ -18,9 +19,7 @@ export default function Dashboard() {
     <div className="max-w-companion mx-auto">
       <Header firstName={firstName} />
 
-      {query.isLoading && (
-        <p className="font-mono text-sm text-ink-tertiary">Loading meetings…</p>
-      )}
+      {query.isLoading && <TableSkeleton />}
 
       {query.isError && (
         <p className="font-mono text-sm text-ink-secondary">

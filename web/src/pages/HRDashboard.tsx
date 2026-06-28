@@ -14,6 +14,8 @@ import { Section } from '../components/pattern-mirror/Section';
 import { TimeRangeSelector } from '../components/pattern-mirror/TimeRangeSelector';
 import { LollipopChart } from '../components/pattern-mirror/charts/LollipopChart';
 import { StackedBarChart } from '../components/pattern-mirror/charts/StackedBarChart';
+import { TabBar } from '../components/shared/TabBar';
+import { ChartSkeleton } from '../components/shared/primitives';
 
 // HR org-level view. Mirrors the Pattern Mirror's chrome (period selector,
 // tab bar, editorial header) but reads the anonymised /hr/* aggregates — no
@@ -55,7 +57,7 @@ export default function HRDashboard() {
         }}
       />
       <TabBar tabs={TABS} active={tab} onChange={setTab} />
-      <div className="pt-10 pb-32">
+      <div role="tabpanel" aria-label={tab} className="pt-10 pb-32">
         {tab === 'Overview' && <OverviewTab flags={flags} decisions={decisions} />}
         {tab === 'Flags' && <FlagsTab flags={flags} />}
         {tab === 'Demographics' && <DemographicsTab demographics={demographics} />}
@@ -95,51 +97,10 @@ function Stat({ children }: { children: ReactNode }) {
   return <span className="font-mono text-base tabular-nums">{children}</span>;
 }
 
-// ── Tab bar (same visual language as the Pattern Mirror) ─────────────────────
-
-function TabBar({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: readonly Tab[];
-  active: Tab;
-  onChange: (t: Tab) => void;
-}) {
-  return (
-    <div className="border-b border-hairline">
-      <div className="flex items-end gap-8">
-        {tabs.map((t) => {
-          const isActive = active === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange(t)}
-              className="relative font-serif text-section py-4 transition-colors duration-120"
-              style={{
-                color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-              }}
-            >
-              {t}
-              <span
-                aria-hidden="true"
-                className={`absolute left-0 right-0 -bottom-px h-px bg-accent transition-opacity duration-160 ${
-                  isActive ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── Shared query-state wrappers ──────────────────────────────────────────────
 
 function Loading() {
-  return <p className="font-mono text-sm text-ink-tertiary">Loading…</p>;
+  return <ChartSkeleton />;
 }
 
 function LoadError({ onRetry }: { onRetry: () => void }) {

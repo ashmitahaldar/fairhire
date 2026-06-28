@@ -3,6 +3,7 @@ import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/
 import type { MirrorData } from '../../lib/mirrorData';
 import { Section } from './Section';
 import { NudgeCard } from './NudgeCard';
+import { TabBar } from '../shared/TabBar';
 import { TimeRangeSelector } from './TimeRangeSelector';
 import { RecentDecisionsTable } from './RecentDecisionsTable';
 import { ConversionGrid } from './ConversionGrid';
@@ -77,7 +78,7 @@ export function PatternMirrorScreen({
       ) : (
         <>
           <TabBar tabs={tabs} active={tab} onChange={setTab} />
-          <div className="pt-10 pb-32">
+          <div role="tabpanel" aria-label={tab} className="pt-10 pb-32">
             {tab === 'Overview' && (
               <OverviewTab
                 data={data}
@@ -203,49 +204,6 @@ function ModeToggle({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ── Tab bar ────────────────────────────────────────────────────────────────
-
-function TabBar({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: readonly Tab[];
-  active: Tab;
-  onChange: (t: Tab) => void;
-}) {
-  return (
-    <div className="border-b border-hairline">
-      <div className="flex items-end gap-8">
-        {tabs.map((t) => {
-          const isActive = active === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange(t)}
-              className="relative font-serif text-section py-4 transition-colors duration-120"
-              style={{
-                color: isActive
-                  ? 'var(--color-text-primary)'
-                  : 'var(--color-text-tertiary)',
-              }}
-            >
-              {t}
-              <span
-                aria-hidden="true"
-                className={`absolute left-0 right-0 -bottom-px h-px bg-accent transition-opacity duration-160 ${
-                  isActive ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

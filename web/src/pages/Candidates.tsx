@@ -6,6 +6,7 @@ import {
 } from '../lib/candidatesApi';
 import { CandidateRow } from '../components/candidates/CandidateRow';
 import { CandidateModal } from '../components/candidates/CandidateModal';
+import { TableSkeleton } from '../components/shared/primitives';
 
 // Candidates CRUD page. Lists every candidate in the org, sortable by
 // header click and filterable via search box. Add/Edit open the same
@@ -84,9 +85,7 @@ export default function Candidates() {
     <div className="max-w-companion mx-auto">
       <Header onAdd={openCreate} />
 
-      {query.isLoading && (
-        <p className="font-mono text-sm text-ink-tertiary">Loading candidates…</p>
-      )}
+      {query.isLoading && <TableSkeleton />}
 
       {query.isError && (
         <p className="font-mono text-sm text-ink-secondary">

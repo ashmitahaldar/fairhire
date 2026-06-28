@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { MeetingType, MirrorPeriod } from '@fairhire/shared';
 import { PatternMirrorScreen } from '../components/pattern-mirror/PatternMirrorScreen';
 import { usePatternMirror } from '../lib/usePatternMirror';
+import { ChartSkeleton, Skeleton } from '../components/shared/primitives';
 
 // Maps the TimeRangeSelector's display labels (the canonical user-facing
 // strings emitted by the server in MirrorData.periodOptions) back to the
@@ -21,8 +22,11 @@ export default function PatternMirror() {
 
   if (query.isLoading) {
     return (
-      <div className="max-w-mirror mx-auto pt-10">
-        <p className="font-mono text-sm text-ink-tertiary">Loading your patterns…</p>
+      <div className="max-w-mirror mx-auto pt-10" role="status" aria-live="polite">
+        <span className="sr-only">Loading your patterns…</span>
+        <Skeleton className="h-4 w-40 mb-3" />
+        <Skeleton className="h-8 w-80 mb-10" />
+        <ChartSkeleton />
       </div>
     );
   }

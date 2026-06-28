@@ -73,21 +73,71 @@ export function AuthGuard() {
     [user, getToken]
   );
 
+  // Resetting to 'idle' re-arms the check effect (its guard is syncState ===
+  // 'idle'), so a transient failure is recoverable without a full reload.
+  const retry = () => {
+    setManager(null);
+    setSyncState('idle');
+  };
+
   // Order matters: SignIn must be reachable from a fresh session. The check
   // useEffect only fires when isSignedIn, so syncState stays 'idle' for a
   // signed-out user — gating Loading on it ahead of the !isSignedIn check
   // would trap them on Loading forever.
-  if (!isLoaded) return <div>Loading...</div>;
-  if (!isSignedIn) return <SignIn />;
+  if (!isLoaded) return <LoadingScreen />;
+  if (!isSignedIn)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+        <SignIn />
+      </div>
+    );
   if (syncState === 'needsRole' || syncState === 'syncing') {
     return <RolePicker onChoose={handleChooseRole} submitting={syncState === 'syncing'} />;
   }
-  if (syncState === 'idle' || syncState === 'checking') return <div>Loading...</div>;
-  if (syncState === 'error') return <div>Failed to set up your account. Please refresh.</div>;
+  if (syncState === 'idle' || syncState === 'checking') return <LoadingScreen />;
+  if (syncState === 'error') return <ErrorScreen onRetry={retry} />;
 
   return (
     <ManagerContext.Provider value={manager!}>
       <Outlet />
     </ManagerContext.Provider>
+  );
+}
+
+// First-touch states share the centered-shell language of the RolePicker so the
+// very first thing a user sees already belongs to the design system.
+function LoadingScreen() {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center bg-bg px-4"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="text-center">
+        <p className="fh-label mb-2">FairHire</p>
+        <p className="font-mono text-sm text-ink-tertiary">Loading your workspace…</p>
+      </div>
+    </div>
+  );
+}
+
+function ErrorScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+      <div className="fh-card w-full max-w-md p-8 text-center shadow-float">
+        <p className="fh-label mb-1">Something went wrong</p>
+        <h1 className="font-serif text-section text-ink mb-2">We couldn’t set up your account</h1>
+        <p className="text-sm text-ink-secondary mb-6 [text-wrap:pretty]">
+          This is usually temporary. Try again, or refresh the page if it keeps happening.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="w-full text-sm font-medium text-ink-inverse bg-ink px-4 py-2.5 rounded-input hover:bg-accent transition-colors duration-120"
+        >
+          Try again
+        </button>
+      </div>
+    </div>
   );
 }
