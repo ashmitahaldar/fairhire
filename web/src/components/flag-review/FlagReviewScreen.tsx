@@ -10,6 +10,7 @@ import { useManager } from '../../lib/ManagerContext';
 import { InitialsAvatar } from '../shared/primitives';
 import { AnalysisStatus } from './AnalysisStatus';
 import { Gutter, GutterHeader, type GutterMode } from './Gutter';
+import { HowThisWorksPanel } from './HowThisWorksPanel';
 import { RerunConfirmModal } from './RerunConfirmModal';
 import { Transcript } from './Transcript';
 
@@ -376,6 +377,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
             visibleCount={visibleFlags.length - dismissedCount}
             totalCount={flags.length}
           />
+          <HowThisWorksPanel />
           {noFlags ? (
             <p className="font-serif italic text-base text-ink-tertiary">
               No flags raised. Transcript reads clean.

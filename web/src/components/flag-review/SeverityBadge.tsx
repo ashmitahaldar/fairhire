@@ -16,10 +16,17 @@ interface SeverityBadgeProps {
 // is dropped because the badge itself now encodes the tier.
 export function SeverityBadge({ tier, label, score }: SeverityBadgeProps) {
   const scoreText = score.toFixed(2);
+  // Hover affordance for the meaning of the number: confidence is the
+  // detector's likelihood, not a measure of harm. Mirrors the "How this works"
+  // panel's framing so the two never drift.
+  const title = `${label} severity · confidence ${scoreText} — how likely the model thinks this wording reflects a real pattern, not how harmful it is.`;
 
   if (tier === 'high') {
     return (
-      <span className="inline-flex items-baseline gap-1 font-mono text-xs px-2 py-0.5 rounded-input bg-accent text-ink-inverse">
+      <span
+        title={title}
+        className="inline-flex items-baseline gap-1 font-mono text-xs px-2 py-0.5 rounded-input bg-accent text-ink-inverse"
+      >
         <span className="font-medium uppercase tracking-meta">{label}</span>
         <span className="opacity-80">·</span>
         <span className="tabular-nums">{scoreText}</span>
@@ -29,7 +36,10 @@ export function SeverityBadge({ tier, label, score }: SeverityBadgeProps) {
 
   if (tier === 'med') {
     return (
-      <span className="inline-flex items-baseline gap-1 font-mono text-xs px-2 py-0.5 rounded-input border border-hairline text-ink-secondary">
+      <span
+        title={title}
+        className="inline-flex items-baseline gap-1 font-mono text-xs px-2 py-0.5 rounded-input border border-hairline text-ink-secondary"
+      >
         <span className="font-medium uppercase tracking-meta">{label}</span>
         <span className="text-ink-tertiary">·</span>
         <span className="tabular-nums">{scoreText}</span>
@@ -40,7 +50,10 @@ export function SeverityBadge({ tier, label, score }: SeverityBadgeProps) {
   // LOW: typographic only. Serif italic + tertiary ink + lowercase label
   // signals "lowest signal-quality tier" without dimming the card body.
   return (
-    <span className="inline-flex items-baseline gap-1 font-serif italic text-sm text-ink-tertiary">
+    <span
+      title={title}
+      className="inline-flex items-baseline gap-1 font-serif italic text-sm text-ink-tertiary"
+    >
       <span>{label.toLowerCase()}</span>
       <span>·</span>
       <span className="font-mono text-xs tabular-nums not-italic">{scoreText}</span>
