@@ -1,3 +1,4 @@
+import { Lightbulb } from 'lucide-react';
 import type { MirrorNudge } from '../../lib/mirrorData';
 
 interface NudgeCardProps {
@@ -10,7 +11,10 @@ interface NudgeCardProps {
 export function NudgeCard({ nudge, onSeeInstances }: NudgeCardProps) {
   return (
     <article className="bg-surface-sunk p-8 flex flex-col h-full">
-      <div className="font-serif italic text-sm text-ink-tertiary mb-5">{nudge.tag}</div>
+      <div className="font-serif italic text-sm text-ink-tertiary mb-5 flex items-center gap-1.5">
+        <Lightbulb className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {nudge.tag}
+      </div>
       <p className="font-serif text-section text-ink leading-snug mb-6 [text-wrap:pretty] flex-1">
         {nudge.sentence}
       </p>

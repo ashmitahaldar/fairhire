@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { FLAG_TYPE_EXPLAINERS } from '@fairhire/shared';
 import type { FlagVM } from '../../lib/flagReview';
 import { ChevronDown } from '../shared/primitives';
 import { SeverityBadge } from './SeverityBadge';
@@ -175,6 +176,18 @@ function MultiInstanceNav({ current, total, onCycle }: MultiInstanceNavProps) {
   );
 }
 
+// One-line "why was this flagged" explainer for the flag's type. Shown only
+// on expanded cards (collapsed cards stay clean). Copy is the shared single
+// source so the hiring + promotion taxonomies read consistently.
+function WhyThisType({ flagType }: { flagType: FlagVM['flagType'] }) {
+  return (
+    <p className="text-sm text-ink-tertiary mb-5 leading-relaxed">
+      <span className="font-serif italic">Why this type — </span>
+      {FLAG_TYPE_EXPLAINERS[flagType]}
+    </p>
+  );
+}
+
 interface FlagCardProps {
   flag: FlagVM;
   expanded: boolean;
@@ -286,6 +299,8 @@ export function FlagCard({
 
         <p className="text-sm text-ink-secondary mb-5 leading-relaxed">{flag.reasoning}</p>
 
+        <WhyThisType flagType={flag.flagType} />
+
         {flag.suggestion && (
           <>
             <div className="fh-hairline mb-5" />
@@ -377,6 +392,8 @@ export function FlagCard({
       </blockquote>
 
       <p className="text-sm text-ink-secondary mb-5 leading-relaxed">{flag.reasoning}</p>
+
+      <WhyThisType flagType={flag.flagType} />
 
       {/* Suggested alternative — only when the engine produced one. Prose
           only since Week 5: the Apply button is gone. */}

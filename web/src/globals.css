@@ -248,4 +248,24 @@
     background: var(--color-text-primary);
     transition: width 200ms linear;
   }
+
+  /* Skeleton shimmer for loading states. A quiet sweep over the sunk
+     surface — never the accent. The global prefers-reduced-motion rule
+     zeroes the animation, leaving a static grey bar. */
+  .fh-skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-sunk) 25%,
+      var(--color-border) 37%,
+      var(--color-surface-sunk) 63%
+    );
+    background-size: 400% 100%;
+    animation: fh-shimmer 1.4s ease-in-out infinite;
+    border-radius: var(--radius-input);
+  }
+}
+
+@keyframes fh-shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Plus, Users } from 'lucide-react';
 import {
   useCandidatesList,
   useSoftDeleteCandidate,
@@ -6,6 +7,7 @@ import {
 } from '../lib/candidatesApi';
 import { CandidateRow } from '../components/candidates/CandidateRow';
 import { CandidateModal } from '../components/candidates/CandidateModal';
+import { InlineError, TableSkeleton } from '../components/shared/primitives';
 
 // Candidates CRUD page. Lists every candidate in the org, sortable by
 // header click and filterable via search box. Add/Edit open the same
@@ -84,21 +86,14 @@ export default function Candidates() {
     <div className="max-w-companion mx-auto">
       <Header onAdd={openCreate} />
 
-      {query.isLoading && (
-        <p className="font-mono text-sm text-ink-tertiary">Loading candidates…</p>
-      )}
+      {query.isLoading && <TableSkeleton />}
 
       {query.isError && (
-        <p className="font-mono text-sm text-ink-secondary">
-          Couldn’t load candidates.{' '}
-          <button
-            type="button"
-            onClick={() => void query.refetch()}
-            className="text-ink font-medium hover:text-accent transition-colors duration-120"
-          >
-            Retry
-          </button>
-        </p>
+        <InlineError
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          fallback="Couldn’t load candidates."
+        />
       )}
 
       {softDelete.isError && (
@@ -143,8 +138,8 @@ export default function Candidates() {
 
 function Header({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+    <div className="pt-8 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
             Candidates
@@ -159,8 +154,9 @@ function Header({ onAdd }: { onAdd: () => void }) {
         <button
           type="button"
           onClick={onAdd}
-          className="text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-inverse bg-ink px-4 py-2 rounded-input hover:bg-accent transition-colors duration-120 whitespace-nowrap"
         >
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Add candidate
         </button>
       </div>
@@ -201,6 +197,7 @@ function Controls({
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="border-t border-hairline pt-12">
+      <Users className="h-5 w-5 text-ink-tertiary mb-4" aria-hidden="true" />
       <p className="font-serif italic text-section text-ink-secondary mb-6 [text-wrap:pretty]">
         No candidates on file yet. Add one to get started.
       </p>
@@ -227,8 +224,8 @@ interface TableProps {
 
 function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: TableProps) {
   return (
-    <div className="border-t border-hairline">
-      <table className="w-full text-base">
+    <div className="border-t border-hairline overflow-x-auto">
+      <table className="w-full text-base min-w-[720px]">
         <thead>
           <tr className="font-serif italic text-sm text-ink-tertiary text-left">
             <Th onClick={() => onToggleSort('name')} active={sort.key === 'name'} dir={sort.dir}>
@@ -250,6 +247,9 @@ function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: T
             >
               Meetings
             </Th>
+            <th className="py-3 pr-4 font-normal border-b border-hairline text-right">
+              Flags · org-wide
+            </th>
             <th className="py-3 pr-4 font-normal border-b border-hairline">Your last outcome</th>
             <Th
               onClick={() => onToggleSort('createdAt')}

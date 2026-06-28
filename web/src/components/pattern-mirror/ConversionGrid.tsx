@@ -57,7 +57,7 @@ export function ConversionGrid({ pipeline }: ConversionGridProps) {
       {rows.map((row) => (
         <div
           key={row.label}
-          className="grid grid-cols-[260px_1fr] gap-8 items-center"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-[260px_1fr] sm:gap-8 sm:items-center"
         >
           <div className="text-base text-ink">{row.label}</div>
           <div className="grid grid-cols-[1fr_1fr_120px] gap-4 items-center">

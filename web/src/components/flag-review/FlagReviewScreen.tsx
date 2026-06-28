@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Play, RefreshCw } from 'lucide-react';
 import type { AnalysisStatus as RunStatus } from '@fairhire/shared';
 import { MEETING_TYPE_LABELS } from '@fairhire/shared';
 import type { FlagVM, MeetingVM } from '../../lib/flagReview';
@@ -10,6 +11,7 @@ import { useManager } from '../../lib/ManagerContext';
 import { InitialsAvatar } from '../shared/primitives';
 import { AnalysisStatus } from './AnalysisStatus';
 import { Gutter, GutterHeader, type GutterMode } from './Gutter';
+import { HowThisWorksPanel } from './HowThisWorksPanel';
 import { RerunConfirmModal } from './RerunConfirmModal';
 import { Transcript } from './Transcript';
 
@@ -90,13 +92,23 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
 
   // Streaming-reveal state
   const [visibleFlagIds, setVisibleFlagIds] = useState<Set<string>>(new Set());
+  // True only while a staggered reveal is actively animating. Drives the
+  // headline counter to climb 0→N in sync with the cards; stays false when an
+  // already-analysed meeting is opened (so the count shows the full total
+  // immediately, no flash).
+  const [revealing, setRevealing] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const prevStatus = useRef<RunStatus | null>(null);
 
   // Reveal flags one-by-one over ~2s (cosmetic — the engine writes them at once).
   const startStaggeredReveal = useCallback(() => {
     setVisibleFlagIds(new Set());
-    const stagger = flags.length > 0 ? Math.min(2000 / flags.length, 320) : 0;
+    if (flags.length === 0) {
+      setRevealing(false);
+      return;
+    }
+    setRevealing(true);
+    const stagger = Math.min(2000 / flags.length, 320);
     const timers = flags.map((f, i) =>
       window.setTimeout(() => {
         setVisibleFlagIds((prev) => {
@@ -106,7 +118,15 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
         });
       }, 200 + i * stagger)
     );
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    // Settle the climbing counter once the last flag has been revealed.
+    const done = window.setTimeout(
+      () => setRevealing(false),
+      200 + (flags.length - 1) * stagger + 60,
+    );
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(done);
+    };
   }, [flags]);
 
   // Elapsed timer while analysing.
@@ -127,6 +147,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
     prevStatus.current = status;
     if (!wasAnalysing) {
       setVisibleFlagIds(new Set(flags.map((f) => f.id)));
+      setRevealing(false);
       return;
     }
     return startStaggeredReveal();
@@ -280,7 +301,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
           <InitialsAvatar initials={initialsOf(manager.name)} />
         </div>
 
-        <div className="flex items-end justify-between gap-8 mb-8">
+        <div className="flex flex-wrap items-end justify-between gap-8 mb-8">
           <div className="min-w-0">
             <h1 className="font-serif text-page text-ink leading-tight mb-2">{meeting.candidateName}</h1>
             {meeting.candidateRole && (
@@ -307,17 +328,22 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
               <button
                 type="button"
                 onClick={() => startStaggeredReveal()}
-                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap"
               >
-                ▷ Replay
+                <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                Replay
               </button>
               <button
                 type="button"
                 onClick={requestRerun}
                 disabled={rerun.isPending}
-                className="text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink hover:border-hairline-strong border border-hairline px-3.5 py-2 rounded-input transition-colors duration-120 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {rerun.isPending ? 'Re-running…' : '↻ Re-run analysis'}
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${rerun.isPending ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                {rerun.isPending ? 'Re-running…' : 'Re-run analysis'}
               </button>
             </div>
           )}
@@ -332,6 +358,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
           error={meeting.analysis.error}
           totalFlags={flags.length}
           revealedFlags={visibleFlags.length}
+          revealing={revealing}
           dismissedCount={dismissedCount}
           onRetry={requestRerun}
         />
@@ -348,7 +375,9 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
 
       <div className="fh-hairline mb-10" />
 
-      <div className="grid grid-cols-[640px_1fr] gap-16 pb-32">
+      {/* Transcript + gutter sit side by side on wide screens; below lg the
+          640px transcript would crush the gutter, so they stack. */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[640px_1fr] lg:gap-16 pb-32">
         {/* Transcript column */}
         <div className="min-w-0">
           <div className="flex items-baseline justify-between mb-5 pb-3 border-b border-hairline">
@@ -376,6 +405,7 @@ export function FlagReviewScreen({ meeting }: FlagReviewScreenProps) {
             visibleCount={visibleFlags.length - dismissedCount}
             totalCount={flags.length}
           />
+          <HowThisWorksPanel />
           {noFlags ? (
             <p className="font-serif italic text-base text-ink-tertiary">
               No flags raised. Transcript reads clean.

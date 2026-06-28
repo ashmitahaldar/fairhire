@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
 import { MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from '@fairhire/shared';
 import type { MirrorData } from '../../lib/mirrorData';
 import { Section } from './Section';
 import { NudgeCard } from './NudgeCard';
+import { TabBar } from '../shared/TabBar';
 import { TimeRangeSelector } from './TimeRangeSelector';
 import { RecentDecisionsTable } from './RecentDecisionsTable';
 import { ConversionGrid } from './ConversionGrid';
@@ -57,6 +59,12 @@ export function PatternMirrorScreen({
     }
   };
 
+  // Zero interviews in the selected period: the editorial sentence and every
+  // chart would render against empty data. Show one editorial empty state
+  // instead, keeping the header (period selector + mode toggle) so the user
+  // can widen the range or switch mode.
+  const noData = data.summary.interviewsCount === 0;
+
   return (
     <div className="max-w-mirror mx-auto" data-screen-label={`01 Mirror · ${meetingType} · ${tab}`}>
       <MirrorHeader
@@ -66,22 +74,48 @@ export function PatternMirrorScreen({
         onChangeMeetingType={onMeetingTypeChange}
         onChangePeriod={onPeriodChange ?? (() => {})}
       />
-      <TabBar tabs={tabs} active={tab} onChange={setTab} />
-      <div className="pt-10 pb-32">
-        {tab === 'Overview' && (
-          <OverviewTab
-            data={data}
-            meetingType={meetingType}
-            onOpenAllDecisions={() => setTab('Decisions')}
-            onSeeInstances={seeInstances}
-          />
-        )}
-        {tab === 'Decisions' && <DecisionsTab data={data} />}
-        {tab === 'Language' && <LanguageTab data={data} onSeeInstances={seeInstances} />}
-        {tab === 'Demographics' && <DemographicsTab data={data} onSeeInstances={seeInstances} />}
-      </div>
+      {noData ? (
+        <EmptyPeriod meetingType={meetingType} />
+      ) : (
+        <>
+          <TabBar tabs={tabs} active={tab} onChange={setTab} />
+          <div role="tabpanel" aria-label={tab} className="pt-10 pb-32">
+            {tab === 'Overview' && (
+              <OverviewTab
+                data={data}
+                meetingType={meetingType}
+                onOpenAllDecisions={() => setTab('Decisions')}
+                onSeeInstances={seeInstances}
+              />
+            )}
+            {tab === 'Decisions' && <DecisionsTab data={data} />}
+            {tab === 'Language' && <LanguageTab data={data} onSeeInstances={seeInstances} />}
+            {tab === 'Demographics' && <DemographicsTab data={data} onSeeInstances={seeInstances} />}
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+// Whole-screen empty state when there are no interviews/discussions in the
+// selected period. Editorial tone, consistent with the Candidates empty state.
+function EmptyPeriod({ meetingType }: { meetingType: MeetingType }) {
+  const noun = meetingType === 'promotion' ? 'promotion discussions' : 'interviews';
+  return (
+    <div className="border-t border-hairline pt-12">
+      <Inbox className="h-5 w-5 text-ink-tertiary mb-4" aria-hidden="true" />
+      <p className="font-serif italic text-section text-ink-secondary [text-wrap:pretty]">
+        No {noun} in this period. Upload a debrief or widen the range above to see your
+        patterns.
+      </p>
+    </div>
+  );
+}
+
+// Inline empty note for a single section (e.g. no flags raised this period).
+function EmptyNote({ children }: { children: ReactNode }) {
+  return <p className="font-serif italic text-base text-ink-tertiary">{children}</p>;
 }
 
 // ── Header: manager + range + the editorial summary sentence ───────────────
@@ -101,8 +135,8 @@ function MirrorHeader({
 }) {
   const { manager, summary, periodOptions } = data;
   return (
-    <div className="pt-10 pb-10">
-      <div className="flex items-end justify-between gap-8 mb-8">
+    <div className="pt-8 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
         <div>
           <div className="font-serif italic text-base text-ink-tertiary mb-2">Pattern Mirror</div>
           <h1 className="font-serif text-page text-ink leading-tight mb-3">{manager.name}</h1>
@@ -120,15 +154,17 @@ function MirrorHeader({
         </div>
       </div>
 
-      <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty]">
-        Across{' '}
-        <Stat>{summary.interviewsCount}</Stat> interviews and{' '}
-        <Stat>{summary.rolesCount}</Stat> roles this quarter, your most frequent flag category was{' '}
-        <em className="text-accent">“{summary.topCategory}”</em> (
-        <Stat>{summary.topCategoryCount}</Stat> instances). On average you flagged{' '}
-        <Stat>{summary.avgFlagsPerInterview}</Stat> spans per interview, and dismissed{' '}
-        <Stat>{summary.dismissedFlags}</Stat> of <Stat>{summary.totalFlags}</Stat> flags overall.
-      </p>
+      {summary.interviewsCount > 0 && (
+        <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty]">
+          Across{' '}
+          <Stat>{summary.interviewsCount}</Stat> interviews and{' '}
+          <Stat>{summary.rolesCount}</Stat> roles this quarter, your most frequent flag category was{' '}
+          <em className="text-accent">“{summary.topCategory}”</em> (
+          <Stat>{summary.topCategoryCount}</Stat> instances). On average you flagged{' '}
+          <Stat>{summary.avgFlagsPerInterview}</Stat> spans per interview, and dismissed{' '}
+          <Stat>{summary.dismissedFlags}</Stat> of <Stat>{summary.totalFlags}</Stat> flags overall.
+        </p>
+      )}
     </div>
   );
 }
@@ -174,49 +210,6 @@ function ModeToggle({
   );
 }
 
-// ── Tab bar ────────────────────────────────────────────────────────────────
-
-function TabBar({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: readonly Tab[];
-  active: Tab;
-  onChange: (t: Tab) => void;
-}) {
-  return (
-    <div className="border-b border-hairline">
-      <div className="flex items-end gap-8">
-        {tabs.map((t) => {
-          const isActive = active === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange(t)}
-              className="relative font-serif text-section py-4 transition-colors duration-120"
-              style={{
-                color: isActive
-                  ? 'var(--color-text-primary)'
-                  : 'var(--color-text-tertiary)',
-              }}
-            >
-              {t}
-              <span
-                aria-hidden="true"
-                className={`absolute left-0 right-0 -bottom-px h-px bg-accent transition-opacity duration-160 ${
-                  isActive ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── Tab bodies ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
@@ -244,7 +237,7 @@ function OverviewTab({
       </Section>
 
       <div
-        className={`${showPipeline ? 'grid grid-cols-[1.05fr_0.95fr] gap-16' : ''} mb-16`}
+        className={`${showPipeline ? 'grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16' : ''} mb-16`}
       >
         {showPipeline && (
           <Section
@@ -260,7 +253,11 @@ function OverviewTab({
           caption="Category count vs previous 90 days"
           anchor="language"
         >
-          <LollipopChart data={data.languageFlags} />
+          {data.languageFlags.length === 0 ? (
+            <EmptyNote>No language flags raised this period.</EmptyNote>
+          ) : (
+            <LollipopChart data={data.languageFlags} />
+          )}
         </Section>
       </div>
 
@@ -328,6 +325,9 @@ function LanguageTab({
   onSeeInstances: (linkTo: string | undefined) => void;
 }) {
   const langNudges = data.nudges.filter((n) => /Language|Self-pattern/i.test(n.tag));
+  if (data.languageFlags.length === 0) {
+    return <EmptyNote>No language flags raised this period.</EmptyNote>;
+  }
   return (
     <>
       <Section
@@ -343,7 +343,7 @@ function LanguageTab({
         caption="Reflections from your language data"
         anchor="lang-nudges"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {langNudges.map((n) => (
             <NudgeCard
               key={n.id}
@@ -392,7 +392,7 @@ function DemographicsTab({
       </Section>
 
       <Section title="Reflections" anchor="demo-nudges">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {demoNudges.map((n) => (
             <NudgeCard
               key={n.id}

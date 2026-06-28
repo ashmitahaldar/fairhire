@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useAnalysisRun } from '../lib/useAnalysisRun';
 import { FlagReviewScreen } from '../components/flag-review/FlagReviewScreen';
+import { InlineError } from '../components/shared/primitives';
 
 export default function FlagReview() {
   const { id } = useParams<{ id: string }>();
@@ -14,16 +15,11 @@ export default function FlagReview() {
   }
   if (query.isError || !query.data) {
     return (
-      <p className="font-mono text-sm text-ink-secondary">
-        Couldn’t load this meeting.{' '}
-        <button
-          type="button"
-          onClick={() => void query.refetch()}
-          className="text-ink font-medium hover:text-accent transition-colors duration-120"
-        >
-          Retry
-        </button>
-      </p>
+      <InlineError
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        fallback="Couldn’t load this meeting."
+      />
     );
   }
 

@@ -40,9 +40,23 @@ async function main() {
     data: { name: 'Meridian Capital Partners' },
   });
 
-  const dept = await prisma.department.create({
-    data: { orgId: org.id, name: 'Investment Banking' },
-  });
+  // Several divisions so the account page's division picker is meaningful.
+  // The seed managers below all live in Investment Banking (departments[0]);
+  // they can move themselves between these from the Workspace settings page.
+  const departmentNames = [
+    'Investment Banking',
+    'Global Markets',
+    'Wealth Management',
+    'Asset Management',
+    'Group Technology',
+    'Risk & Compliance',
+  ];
+  const departments = await Promise.all(
+    departmentNames.map((name) =>
+      prisma.department.create({ data: { orgId: org.id, name } }),
+    ),
+  );
+  const dept = departments[0]!; // Investment Banking — the managers' home division
 
   // ─── Managers ───────────────────────────────────────────────────────────────
 
@@ -897,10 +911,17 @@ async function main() {
         startedAt: new Date('2026-01-18T16:12:00Z'),
         completedAt: new Date('2026-01-18T16:12:53Z'),
       },
+      // Marcus's clean debrief — completed with no flags. (Previously seeded
+      // as a permanently 'pending' run, which the 1.5s poller spun on forever;
+      // completed + zero flags now demonstrates the clean "No flags raised"
+      // empty state instead.)
       {
         orgId: org.id,
         meetingId: m12.id,
-        status: 'pending',
+        status: 'completed',
+        modelVersion: 'claude-3-5-sonnet-20241022',
+        startedAt: new Date('2026-03-05T10:00:00Z'),
+        completedAt: new Date('2026-03-05T10:00:41Z'),
       },
     ],
   });

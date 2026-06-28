@@ -1,8 +1,38 @@
-import type { CSSProperties } from 'react';
+import { useId, useState, type CSSProperties, type ReactNode } from 'react';
+import { ApiError } from '../../lib/api';
 
 // Shared design-system primitives, ported from the design drop's components.jsx
 // (Object.assign(window,…) globals → named ES exports). Only the primitives the
 // flag-review screen uses are ported; add others here as screens need them.
+
+// Inline "couldn't load X" line with a Retry affordance, used by every list/
+// query screen so a failed fetch reads the same everywhere. Surfaces
+// ApiError.userMessage (network vs. server vs. session, the single source of
+// error copy) and falls back to a caller-supplied label for non-ApiError
+// throws (e.g. a missing auth token).
+export function InlineError({
+  error,
+  onRetry,
+  fallback = 'Something went wrong.',
+}: {
+  error: unknown;
+  onRetry: () => void;
+  fallback?: string;
+}) {
+  const message = error instanceof ApiError ? error.userMessage : fallback;
+  return (
+    <p className="font-mono text-sm text-ink-secondary" role="alert">
+      {message}{' '}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="text-ink font-medium hover:text-accent transition-colors duration-120"
+      >
+        Retry
+      </button>
+    </p>
+  );
+}
 
 interface ConfidenceIndicatorProps {
   level: string;
@@ -43,5 +73,121 @@ export function InitialsAvatar({ initials }: { initials: string }) {
     <div className="w-7 h-7 rounded-card border border-hairline flex items-center justify-center bg-surface">
       <span className="font-mono text-meta tracking-meta text-ink-secondary">{initials}</span>
     </div>
+  );
+}
+
+// ── Skeleton loaders ─────────────────────────────────────────────────────────
+// Quiet shimmer placeholders so fetches don't pop content in (and so the layout
+// doesn't jump). The shimmer freezes under prefers-reduced-motion via the global
+// rule in globals.css. Always aria-hidden — the surrounding region carries the
+// role="status" + sr-only "Loading…" cue for screen readers.
+
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`fh-skeleton block ${className}`} />;
+}
+
+// Approximate table placeholder — column widths echo the real tables (date,
+// name, wide title, trailing count) closely enough to read as "a table is
+// loading" without pretending to be pixel-exact.
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div role="status" aria-live="polite" className="border-t border-hairline">
+      <span className="sr-only">Loading…</span>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 py-3.5 border-b border-hairline">
+          <Skeleton className="h-3.5 w-16" />
+          <Skeleton className="h-3.5 w-40" />
+          <Skeleton className="h-3.5 flex-1" />
+          <Skeleton className="h-3.5 w-10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Horizontal-bar placeholder for the chart surfaces (Mirror / HR). Descending
+// widths suggest a ranked distribution.
+export function ChartSkeleton({ rows = 6 }: { rows?: number }) {
+  const widths = ['w-3/4', 'w-2/3', 'w-1/2', 'w-2/5', 'w-1/3', 'w-1/4'];
+  return (
+    <div role="status" aria-live="polite" className="space-y-4">
+      <span className="sr-only">Loading…</span>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton className="h-3 w-32 shrink-0" />
+          <Skeleton className={`h-3 ${widths[i % widths.length]}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── InfoPopover ──────────────────────────────────────────────────────────────
+// Keyboard- and touch-accessible replacement for hover-only `title=` tooltips.
+// The trigger (children) is a real button: opens on hover/focus, pins on click,
+// closes on blur/Escape. Content is announced to screen readers via
+// aria-describedby. stopPropagation on click so a popover inside a clickable
+// card (e.g. a flag card) doesn't also toggle the card.
+export function InfoPopover({
+  label,
+  content,
+  children,
+  triggerClassName = '',
+  align = 'left',
+}: {
+  label: string;
+  content: ReactNode;
+  children: ReactNode;
+  triggerClassName?: string;
+  align?: 'left' | 'right';
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const open = hovered || pinned;
+  const panelId = useId();
+
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-describedby={open ? panelId : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          setPinned((p) => !p);
+        }}
+        onFocus={() => setHovered(true)}
+        onBlur={() => {
+          setHovered(false);
+          setPinned(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setHovered(false);
+            setPinned(false);
+            e.currentTarget.blur();
+          }
+        }}
+        className={triggerClassName}
+      >
+        {children}
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          id={panelId}
+          className={`absolute top-full mt-1.5 z-30 w-64 fh-card shadow-float p-3 font-sans text-sm normal-case tracking-normal text-left text-ink-secondary leading-relaxed ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
+          {content}
+        </span>
+      )}
+    </span>
   );
 }

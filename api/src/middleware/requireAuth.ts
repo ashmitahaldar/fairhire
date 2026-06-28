@@ -20,7 +20,10 @@ export async function attachManager(req: Request, res: Response, next: NextFunct
   });
 
   if (!manager) {
-    res.status(401).json({ error: 'Manager account not found — call POST /auth/sync first' });
+    // 404, not 401: the Clerk token is valid (we have a userId) — the account
+    // simply isn't provisioned yet. The frontend relies on this distinction to
+    // show the first-run role picker vs. treating it as an auth failure.
+    res.status(404).json({ error: 'Manager account not found — call POST /auth/sync first' });
     return;
   }
 

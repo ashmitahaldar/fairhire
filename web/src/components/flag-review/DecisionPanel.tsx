@@ -1,3 +1,4 @@
+import { Gavel } from 'lucide-react';
 import {
   DECISION_OUTCOMES_BY_MODE,
   DECISION_OUTCOME_LABELS_BY_MODE,
@@ -53,7 +54,10 @@ export function DecisionPanel({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="fh-label">Outcome</span>
+      <span className="fh-label flex items-center gap-1.5">
+        <Gavel className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        Outcome
+      </span>
       <div
         role="radiogroup"
         aria-label="Decision outcome"

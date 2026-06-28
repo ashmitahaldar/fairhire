@@ -423,7 +423,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <fieldset className="space-y-4">
       <legend className="fh-label mb-1">{title}</legend>
-      <div className="grid grid-cols-2 gap-4">{children}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
     </fieldset>
   );
 }

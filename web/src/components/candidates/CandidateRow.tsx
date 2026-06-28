@@ -1,5 +1,6 @@
 import type { CandidateListItem } from '../../lib/candidatesApi';
 import { decisionOutcomeLabel, type Gender, type Race } from '@fairhire/shared';
+import { InfoPopover } from '../shared/primitives';
 
 // One row of the Candidates table. Edit/delete buttons are disabled when
 // canModify is false (the caller hasn't interviewed this candidate, per
@@ -37,6 +38,39 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// Org-wide flag count. `total` includes flags raised in other managers'
+// debriefs, so a manager sees a candidate's full flag history without seeing
+// any other manager's flag content or identity. When others have contributed
+// (own < total) we surface "· N by you" so the split is legible; a focusable
+// InfoPopover carries the full breakdown and the privacy framing.
+function FlagCountCell({ flagCount }: { flagCount: CandidateListItem['flagCount'] }) {
+  const { total, own } = flagCount;
+  if (total === 0) {
+    return <span className="text-ink-tertiary italic font-serif">—</span>;
+  }
+  const aria = `${total} flag${total === 1 ? '' : 's'} across the organisation, ${own} by you. What this count means.`;
+  return (
+    <InfoPopover
+      label={aria}
+      align="right"
+      triggerClassName="underline decoration-dotted decoration-hairline underline-offset-2 hover:decoration-ink transition-colors duration-120 tabular-nums"
+      content={
+        <>
+          <span className="font-serif italic text-ink">
+            {total} flag{total === 1 ? '' : 's'}
+          </span>{' '}
+          raised for this candidate across the organisation — including other managers’ debriefs.{' '}
+          {own} of those {own === 1 ? 'is' : 'are'} from your own interviews. No other manager’s flag
+          content or identity is shown.
+        </>
+      }
+    >
+      {total}
+      {own < total && <span className="text-ink-tertiary"> · {own} by you</span>}
+    </InfoPopover>
+  );
+}
+
 // Display labels come from the canonical shared map so the Candidates page,
 // the Flag Review decision panel, and the Pattern Mirror summary read the
 // same vocabulary (Hired / Declined / Pending).
@@ -60,6 +94,9 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
       </td>
       <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
         {candidate.meetingCount}
+      </td>
+      <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
+        <FlagCountCell flagCount={candidate.flagCount} />
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-sm">
         {candidate.lastDecisionOutcome ? (
