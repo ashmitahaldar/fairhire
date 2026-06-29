@@ -10,11 +10,35 @@ import { hrRouter } from './routes/hr';
 import { internalRouter } from './routes/internal';
 import { mirrorRouter } from './routes/mirror';
 
+// Allowed browser origins. Vercel assigns every deployment its own hostname
+// (production alias + per-deployment + per-branch preview URLs), so a single
+// exact origin can't cover them all. We allow:
+//   - the canonical alias(es) from WEB_URL (comma-separated for >1),
+//   - localhost for dev,
+//   - this project's Vercel deployment/preview URLs by pattern
+//     (e.g. fairhire-<hash>-ashmitahaldars-projects.vercel.app). Override the
+//     pattern via WEB_ORIGIN_REGEX if the Vercel project/team slug changes.
+// The cors package reflects the matched origin back (required with
+// credentials: true, which forbids a wildcard ACAO).
+function buildAllowedOrigins(): (string | RegExp)[] {
+  const exact = (process.env.WEB_URL ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  exact.push('http://localhost:5173'); // always allow local dev
+
+  const previewPattern = process.env.WEB_ORIGIN_REGEX
+    ? new RegExp(process.env.WEB_ORIGIN_REGEX)
+    : /^https:\/\/fairhire-[a-z0-9-]+-ashmitahaldars-projects\.vercel\.app$/;
+
+  return [...new Set(exact), previewPattern];
+}
+
 export function createApp() {
   const app = express();
 
   app.use(cors({
-    origin: process.env.WEB_URL || 'http://localhost:5173',
+    origin: buildAllowedOrigins(),
     credentials: true,
   }));
   // Sized above the transcript's Zod cap (500_000 chars) — and crucially above
