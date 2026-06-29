@@ -9,8 +9,9 @@ import {
   type MirrorPeriod,
 } from '@fairhire/shared';
 import type { LanguageFlagRow, PipelineRow, RaceSegmentKey } from '../lib/mirrorData';
-import { useHrFlags, useHrDecisions, useHrDemographics } from '../lib/useHrSummary';
+import { useHrFlags, useHrDecisions, useHrDemographics, useHrNudges } from '../lib/useHrSummary';
 import { Section } from '../components/pattern-mirror/Section';
+import { NudgeCard } from '../components/pattern-mirror/NudgeCard';
 import { TimeRangeSelector } from '../components/pattern-mirror/TimeRangeSelector';
 import { LollipopChart } from '../components/pattern-mirror/charts/LollipopChart';
 import { StackedBarChart } from '../components/pattern-mirror/charts/StackedBarChart';
@@ -38,14 +39,21 @@ const PERIOD_OPTIONS = Object.values(PERIOD_LABELS);
 const TABS = ['Overview', 'Flags', 'Demographics'] as const;
 type Tab = (typeof TABS)[number];
 
+// A nudge's linkTo carries a tab name; narrow it before switching tabs so an
+// unrecognised value is ignored rather than landing on a non-existent tab.
+function isTab(value: string | undefined): value is Tab {
+  return value !== undefined && (TABS as readonly string[]).includes(value);
+}
+
 export default function HRDashboard() {
   const [period, setPeriod] = useState<MirrorPeriod>('90d');
   const [tab, setTab] = useState<Tab>('Overview');
 
-  // Small payloads — fetch all three on mount; each tab reads what it needs.
+  // Small payloads — fetch all on mount; each tab reads what it needs.
   const flags = useHrFlags(period);
   const decisions = useHrDecisions(period);
   const demographics = useHrDemographics(period);
+  const nudges = useHrNudges(period);
 
   return (
     <div className="max-w-mirror mx-auto" data-screen-label={`HR · ${tab}`}>
@@ -58,7 +66,9 @@ export default function HRDashboard() {
       />
       <TabBar tabs={TABS} active={tab} onChange={setTab} />
       <div role="tabpanel" aria-label={tab} className="pt-10 pb-32">
-        {tab === 'Overview' && <OverviewTab flags={flags} decisions={decisions} />}
+        {tab === 'Overview' && (
+          <OverviewTab flags={flags} decisions={decisions} nudges={nudges} onSeeIn={setTab} />
+        )}
         {tab === 'Flags' && <FlagsTab flags={flags} />}
         {tab === 'Demographics' && <DemographicsTab demographics={demographics} />}
       </div>
@@ -138,9 +148,13 @@ function demographicsToPipeline(data: HrDemographicsResponse): PipelineRow[] {
 function OverviewTab({
   flags,
   decisions,
+  nudges,
+  onSeeIn,
 }: {
   flags: ReturnType<typeof useHrFlags>;
   decisions: ReturnType<typeof useHrDecisions>;
+  nudges: ReturnType<typeof useHrNudges>;
+  onSeeIn: (tab: Tab) => void;
 }) {
   if (flags.isLoading || decisions.isLoading) return <Loading />;
   if (flags.isError)
@@ -157,6 +171,10 @@ function OverviewTab({
     return <Empty>No organisation-wide activity in this period — try a wider range.</Empty>;
   }
 
+  // Nudges are supplementary: a load failure shouldn't blank the Overview, so
+  // we only render the strip when they resolve with at least one reflection.
+  const visibleNudges = nudges.data?.nudges ?? [];
+
   return (
     <>
       <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty] mb-12">
@@ -165,6 +183,26 @@ function OverviewTab({
         {d.total === 1 ? 'decision' : 'decisions'} this period, of which{' '}
         <Stat>{f.dismissed}</Stat> {f.dismissed === 1 ? 'flag was' : 'flags were'} dismissed.
       </p>
+
+      {visibleNudges.length > 0 && (
+        <Section
+          title="Patterns worth a closer look"
+          caption="Drawn from the organisation-wide aggregates below — never an individual manager."
+          anchor="hr-nudges"
+        >
+          <div className="grid grid-cols-3 gap-4">
+            {visibleNudges.map((n) => (
+              <NudgeCard
+                key={n.id}
+                nudge={n}
+                onSeeInstances={(nudge) => {
+                  if (isTab(nudge.linkTo)) onSeeIn(nudge.linkTo);
+                }}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
 
       <Section
         title="Most frequent flag categories"

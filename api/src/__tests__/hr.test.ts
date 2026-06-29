@@ -166,3 +166,56 @@ describe('GET /hr/demographics', () => {
     expect(mockQueryRaw).not.toHaveBeenCalled();
   });
 });
+
+describe('GET /hr/nudges', () => {
+  it('returns org-level reflections built from the aggregates for an hr_admin', async () => {
+    mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
+
+    // aggregateHrNudges runs hr_flag_summary twice (current, previous) then
+    // hr_demographic_summary once.
+    mockQueryRaw
+      .mockResolvedValueOnce([
+        { flag_type: 'criteria_drift', count: BigInt(12), dismissed: BigInt(9) },
+        { flag_type: 'age_bias', count: BigInt(4), dismissed: BigInt(0) },
+      ])
+      .mockResolvedValueOnce([
+        { flag_type: 'criteria_drift', count: BigInt(6), dismissed: BigInt(2) },
+        { flag_type: 'age_bias', count: BigInt(4), dismissed: BigInt(0) },
+      ])
+      .mockResolvedValueOnce([
+        { race: 'chinese', applied: BigInt(7), hired: BigInt(9), rejected: BigInt(0) },
+        { race: 'malay', applied: BigInt(3), hired: BigInt(1), rejected: BigInt(0) },
+      ]);
+
+    const res = await request(app).get('/hr/nudges?period=90d');
+
+    expect(res.status).toBe(200);
+    expect(res.body.period).toBe('90d');
+    // All four rules fire; the cap is 3 and composition shift (+20pp) ranks first.
+    expect(res.body.nudges).toHaveLength(3);
+    expect(res.body.nudges[0].id).toBe('hr-composition-shift');
+    // Aggregate-only: no manager identity, excerpt, or reasoning anywhere.
+    expect(JSON.stringify(res.body)).not.toMatch(/managerId|clerkUserId|excerpt|reasoning/);
+  });
+
+  it('rejects an invalid period', async () => {
+    mockGetAuth.mockReturnValue({ userId: hrAdmin.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(hrAdmin);
+
+    const res = await request(app).get('/hr/nudges?period=bogus');
+
+    expect(res.status).toBe(400);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for a regular manager', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+
+    const res = await request(app).get('/hr/nudges');
+
+    expect(res.status).toBe(403);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+});

@@ -267,3 +267,13 @@ export interface HrDemographicsResponse {
   period: MirrorPeriod;
   byRace: HrDemographicRow[];
 }
+
+// Org-level reflections derived from the aggregates above. Reuses MirrorNudge
+// (id/tag/sentence/linkTo) — the shape is identical; only the voice differs
+// (third-person org, never "you"). linkTo carries an HR tab name ('Flags' |
+// 'Demographics') so the card's "See in …" can switch tabs. No manager,
+// candidate, or excerpt is referenced, by construction.
+export interface HrNudgesResponse {
+  period: MirrorPeriod;
+  nudges: MirrorNudge[];
+}
