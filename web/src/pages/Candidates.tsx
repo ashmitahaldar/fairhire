@@ -157,7 +157,8 @@ function Header({ onAdd }: { onAdd: () => void }) {
             Your org’s candidate roster
           </h1>
           <div className="font-serif italic text-section text-ink-secondary">
-            Add, edit, and review demographics for every candidate.
+            Add, edit, and review demographics. Click a name to see the flags raised for that
+            candidate.
           </div>
         </div>
         <button

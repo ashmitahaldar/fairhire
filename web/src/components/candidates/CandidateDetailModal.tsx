@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   AGE_BAND_LABELS,
@@ -107,19 +108,26 @@ export function CandidateDetailModal({ candidate, onClose }: CandidateDetailModa
   const demo = demographicsLine(candidate.demographics);
   const { total, own } = candidate.flagCount;
 
-  return (
+  // Rendered through a portal to <body> so the fixed overlay always covers the
+  // viewport, regardless of any ancestor that establishes a containing block.
+  // The scrim colour is an inline style, not `bg-ink/40`: the design tokens are
+  // bare `var(--color-*)` values, and Tailwind v3 can't inject an alpha into a
+  // bare var() — hence the codebase's baked-alpha tokens (e.g. accent-soft).
+  // The panel scrolls internally (max-h) so a long flag list never overflows.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 px-4 py-12 transition-opacity duration-120"
+      style={{ backgroundColor: 'oklch(0.20 0.008 70 / 0.45)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-surface rounded-card shadow-float border border-hairline outline-none"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-surface rounded-card shadow-float border border-hairline outline-none"
       >
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-hairline">
@@ -163,7 +171,8 @@ export function CandidateDetailModal({ candidate, onClose }: CandidateDetailModa
           <FlagsBody query={flagsQuery} own={own} total={total} onNavigate={onClose} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

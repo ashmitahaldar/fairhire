@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AGE_BANDS,
   AGE_BAND_LABELS,
@@ -212,22 +213,26 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
     }
   };
 
-  return (
+  return createPortal(
     // Backdrop. Click outside the panel closes; clicks inside the panel
     // stopPropagation up to the dialog itself so they don't trigger the
-    // backdrop's onClick.
+    // backdrop's onClick. Portaled to <body> so the fixed overlay always covers
+    // the viewport; the scrim is an inline style because the design tokens are
+    // bare var() colours and Tailwind v3 can't inject alpha into `bg-ink/40`.
+    // The panel scrolls internally (max-h) so a tall form never overflows.
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 px-4 py-12 transition-opacity duration-120"
+      style={{ backgroundColor: 'oklch(0.20 0.008 70 / 0.45)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
     >
       <div
         ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onPanelKeyDown}
-        className="w-full max-w-2xl bg-surface rounded-card shadow-float border border-hairline"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-surface rounded-card shadow-float border border-hairline"
       >
         <div className="px-8 pt-8 pb-2 border-b border-hairline">
           <div className="font-serif italic text-base text-ink-tertiary mb-2">
@@ -410,7 +415,8 @@ export function CandidateModal({ open, candidate, onClose, onSaved }: CandidateM
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
