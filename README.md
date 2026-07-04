@@ -25,6 +25,7 @@ specific to the local workforce.
 | **[Security & privacy](./docs/SECURITY.md)** | RLS model, `withManagerContext`, the policy matrix, why `SECURITY DEFINER` beats plain RLS, how isolation is proven |
 | **[Analysis engine](./docs/ANALYSIS.md)** | The hybrid rules + LLM pipeline, run lifecycle, flag types, confidence & severity scoring |
 | **[Evaluation](./docs/EVALUATION.md)** | Precision/recall/F1 methodology, ground truth, matching, fairness breakdown, limitations |
+| **[Phase 2 scope](./docs/PHASE-2.md)** | Roadmap: HRIS integration, live transcription, fine-tuning, nudge tuning, FastAPI note |
 
 ---
 
