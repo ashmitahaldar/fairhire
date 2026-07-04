@@ -1,14 +1,15 @@
 import type { CandidateListItem } from '../../lib/candidatesApi';
 import { decisionOutcomeLabel, type Gender, type Race } from '@fairhire/shared';
-import { InfoPopover } from '../shared/primitives';
 
-// One row of the Candidates table. Edit/delete buttons are disabled when
-// canModify is false (the caller hasn't interviewed this candidate, per
-// the hybrid access rule). The disabled affordance has a tooltip so the
-// user understands why — see Section 5 of the Week 4 plan.
+// One row of the Candidates table. The name opens the candidate detail dialog
+// (identity, org-wide flag count, and the caller's own flags). Edit/delete
+// buttons are disabled when canModify is false (the caller hasn't interviewed
+// this candidate, per the hybrid access rule). The disabled affordance has a
+// tooltip so the user understands why — see Section 5 of the Week 4 plan.
 
 interface CandidateRowProps {
   candidate: CandidateListItem;
+  onOpen: (candidate: CandidateListItem) => void;
   onEdit: (candidate: CandidateListItem) => void;
   onDelete: (candidate: CandidateListItem) => void;
 }
@@ -38,44 +39,11 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Org-wide flag count. `total` includes flags raised in other managers'
-// debriefs, so a manager sees a candidate's full flag history without seeing
-// any other manager's flag content or identity. When others have contributed
-// (own < total) we surface "· N by you" so the split is legible; a focusable
-// InfoPopover carries the full breakdown and the privacy framing.
-function FlagCountCell({ flagCount }: { flagCount: CandidateListItem['flagCount'] }) {
-  const { total, own } = flagCount;
-  if (total === 0) {
-    return <span className="text-ink-tertiary italic font-serif">—</span>;
-  }
-  const aria = `${total} flag${total === 1 ? '' : 's'} across the organisation, ${own} by you. What this count means.`;
-  return (
-    <InfoPopover
-      label={aria}
-      align="right"
-      triggerClassName="underline decoration-dotted decoration-hairline underline-offset-2 hover:decoration-ink transition-colors duration-120 tabular-nums"
-      content={
-        <>
-          <span className="font-serif italic text-ink">
-            {total} flag{total === 1 ? '' : 's'}
-          </span>{' '}
-          raised for this candidate across the organisation — including other managers’ debriefs.{' '}
-          {own} of those {own === 1 ? 'is' : 'are'} from your own interviews. No other manager’s flag
-          content or identity is shown.
-        </>
-      }
-    >
-      {total}
-      {own < total && <span className="text-ink-tertiary"> · {own} by you</span>}
-    </InfoPopover>
-  );
-}
-
 // Display labels come from the canonical shared map so the Candidates page,
 // the Flag Review decision panel, and the Pattern Mirror summary read the
 // same vocabulary (Hired / Declined / Pending).
 
-export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps) {
+export function CandidateRow({ candidate, onOpen, onEdit, onDelete }: CandidateRowProps) {
   const chip = demographicsChip(candidate.demographics);
   const lock = candidate.canModify
     ? undefined
@@ -84,7 +52,13 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
   return (
     <tr className="text-ink hover:bg-surface-sunk transition-colors duration-120">
       <td className="py-3 pr-4 border-b border-hairline">
-        <span className="font-mono text-sm text-ink">{candidate.name}</span>
+        <button
+          type="button"
+          onClick={() => onOpen(candidate)}
+          className="font-mono text-sm text-ink text-left underline decoration-hairline underline-offset-2 hover:decoration-ink hover:text-accent transition-colors duration-120"
+        >
+          {candidate.name}
+        </button>
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-ink-secondary text-sm">
         {candidate.roleAppliedFor}
@@ -94,9 +68,6 @@ export function CandidateRow({ candidate, onEdit, onDelete }: CandidateRowProps)
       </td>
       <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
         {candidate.meetingCount}
-      </td>
-      <td className="py-3 pr-4 border-b border-hairline font-mono text-sm tabular-nums text-right">
-        <FlagCountCell flagCount={candidate.flagCount} />
       </td>
       <td className="py-3 pr-4 border-b border-hairline text-sm">
         {candidate.lastDecisionOutcome ? (

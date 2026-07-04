@@ -4,6 +4,7 @@ import type {
   CreateCandidateInput,
   DecisionOutcome,
   DemographicsInput,
+  FlagType,
   MeetingType,
   UpdateCandidateInput,
 } from '@fairhire/shared';
@@ -48,6 +49,39 @@ export function useCandidatesList() {
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
       return apiFetch<CandidateListItem[]>('/candidates', token);
+    },
+  });
+}
+
+// One of the caller's OWN flags on a candidate, with full content. Returned by
+// GET /candidates/:id/flags. Distinct from the list's org-wide `flagCount`
+// (an aggregate that crosses the manager boundary): this is content, so it is
+// strictly the caller's own debriefs — never another manager's flag.
+export interface CandidateFlag {
+  id: string;
+  flagType: FlagType;
+  excerpt: string;
+  reasoning: string;
+  confidenceScore: number;
+  dismissed: boolean;
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  meetingType: MeetingType;
+}
+
+// Fetches the caller's own flags for one candidate. Enabled only when a
+// candidateId is set (i.e. the detail dialog is open), so closing the dialog
+// stops refetching. Cached per candidate.
+export function useCandidateFlags(candidateId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery<CandidateFlag[]>({
+    queryKey: ['candidate-flags', candidateId],
+    enabled: candidateId !== null,
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      return apiFetch<CandidateFlag[]>(`/candidates/${candidateId}/flags`, token);
     },
   });
 }

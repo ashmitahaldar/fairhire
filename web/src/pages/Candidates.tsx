@@ -7,6 +7,7 @@ import {
 } from '../lib/candidatesApi';
 import { CandidateRow } from '../components/candidates/CandidateRow';
 import { CandidateModal } from '../components/candidates/CandidateModal';
+import { CandidateDetailModal } from '../components/candidates/CandidateDetailModal';
 import { InlineError, TableSkeleton } from '../components/shared/primitives';
 
 // Candidates CRUD page. Lists every candidate in the org, sortable by
@@ -31,6 +32,7 @@ export default function Candidates() {
   const [sort, setSort] = useState<SortState>({ key: 'name', dir: 'asc' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<CandidateListItem | null>(null);
+  const [detailCandidate, setDetailCandidate] = useState<CandidateListItem | null>(null);
 
   const candidates = query.data ?? [];
 
@@ -72,6 +74,7 @@ export default function Candidates() {
     setEditingCandidate(c);
     setModalOpen(true);
   };
+  const openDetail = (c: CandidateListItem) => setDetailCandidate(c);
   const onDelete = (c: CandidateListItem) => {
     // window.confirm is functional and accessible for POC. A styled
     // AlertDialog can replace it later without changing the call site.
@@ -119,6 +122,7 @@ export default function Candidates() {
             candidates={filteredSorted}
             sort={sort}
             onToggleSort={toggleSort}
+            onOpen={openDetail}
             onEdit={openEdit}
             onDelete={onDelete}
           />
@@ -129,6 +133,11 @@ export default function Candidates() {
         open={modalOpen}
         candidate={editingCandidate}
         onClose={() => setModalOpen(false)}
+      />
+
+      <CandidateDetailModal
+        candidate={detailCandidate}
+        onClose={() => setDetailCandidate(null)}
       />
     </div>
   );
@@ -218,11 +227,12 @@ interface TableProps {
   candidates: CandidateListItem[];
   sort: SortState;
   onToggleSort: (key: SortKey) => void;
+  onOpen: (c: CandidateListItem) => void;
   onEdit: (c: CandidateListItem) => void;
   onDelete: (c: CandidateListItem) => void;
 }
 
-function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: TableProps) {
+function CandidatesTable({ candidates, sort, onToggleSort, onOpen, onEdit, onDelete }: TableProps) {
   return (
     <div className="border-t border-hairline overflow-x-auto">
       <table className="w-full text-base min-w-[720px]">
@@ -247,9 +257,6 @@ function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: T
             >
               Meetings
             </Th>
-            <th className="py-3 pr-4 font-normal border-b border-hairline text-right">
-              Flags · org-wide
-            </th>
             <th className="py-3 pr-4 font-normal border-b border-hairline">Your last outcome</th>
             <Th
               onClick={() => onToggleSort('createdAt')}
@@ -263,7 +270,13 @@ function CandidatesTable({ candidates, sort, onToggleSort, onEdit, onDelete }: T
         </thead>
         <tbody>
           {candidates.map((c) => (
-            <CandidateRow key={c.id} candidate={c} onEdit={onEdit} onDelete={onDelete} />
+            <CandidateRow
+              key={c.id}
+              candidate={c}
+              onOpen={onOpen}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           ))}
         </tbody>
       </table>
