@@ -1,233 +1,182 @@
 # FairHire
 
-A bias-awareness tool for hiring and promotion decisions. FairHire analyses interview transcripts to surface patterns of biased language — criteria drift, asymmetric concern, hedging language, and age bias — and presents them to managers as a personal reflection tool (Decision Companion) and an aggregate pattern view (Pattern Mirror).
+A bias-awareness tool for **hiring and promotion** decisions. FairHire analyses
+interview transcripts to surface patterns of biased language — shifting
+criteria, asymmetric concern, "culture fit" without evidence, age/energy
+framing, and more — and reflects them back to managers as a personal review tool
+(**Decision Companion**), a personal trend view (**Pattern Mirror**), and an
+anonymised organisation-level view for HR (**HR Overview**).
 
-Built for Singapore's investment banking context with demographic fields specific to the local workforce.
+Built for Singapore's investment-banking context, with demographic dimensions
+specific to the local workforce.
+
+> **The trust contract:** a manager sees only their own interviews and patterns.
+> HR sees only anonymised, organisation-level aggregates — never an individual
+> manager's data. This isn't a policy; it's enforced at the database layer and
+> proven by tests. See **[docs/SECURITY.md](./docs/SECURITY.md)**.
+
+---
+
+## Documentation
+
+| Doc | What's inside |
+|---|---|
+| **[Architecture](./docs/ARCHITECTURE.md)** | Monorepo layout, data flow, modes, the three surfaces, data model, full API reference |
+| **[Security & privacy](./docs/SECURITY.md)** | RLS model, `withManagerContext`, the policy matrix, why `SECURITY DEFINER` beats plain RLS, how isolation is proven |
+| **[Analysis engine](./docs/ANALYSIS.md)** | The hybrid rules + LLM pipeline, run lifecycle, flag types, confidence & severity scoring |
+| **[Evaluation](./docs/EVALUATION.md)** | Precision/recall/F1 methodology, ground truth, matching, fairness breakdown, limitations |
 
 ---
 
-## Architecture
+## Architecture at a glance
 
+```mermaid
+flowchart LR
+    W[React SPA<br/>Vercel] -->|Clerk JWT| A[Express API<br/>Render]
+    W -.sign-in.-> CL[Clerk]
+    A -->|verify| CL
+    A -->|app_user · RLS-scoped| DB[(PostgreSQL + RLS<br/>Supabase)]
+    A -->|async analysis| E[Rules + LLM engine]
+    E --> AI[OpenAI gpt-4o]
+    E --> DB
 ```
-fairhire/
-  web/        React + Vite + TypeScript       — frontend (Vercel)
-  api/        Node.js + Express + TypeScript  — backend API (Render)
-  shared/     Shared TypeScript types         — consumed by both web and api
-  prisma/     schema.prisma + migrations + manual RLS SQL
-  scripts/    seed.ts, check-env.ts, check-rls.ts
-```
 
-**Data flow:**
-1. Manager logs in via Clerk → `POST /auth/sync` creates or finds their `Manager` row
-2. Manager uploads an interview transcript → stored in `meetings` table
-3. Analysis engine (Week 2) reads the transcript and writes `Flag` rows via `POST /internal/analysis/:runId/results`
-4. Manager views their Decision Companion (per-meeting flags) and Pattern Mirror (cross-meeting trends)
-5. HR admin views aggregate flag and decision counts across the whole organisation via `GET /hr/summary`
-
----
+A React SPA authenticates with Clerk and calls an Express API. The API scopes
+every query to the signed-in manager via Postgres Row-Level Security. Transcript
+analysis runs asynchronously (a deterministic rules engine + an LLM) and writes
+flags back to the database. Full detail in
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, Vite, TypeScript, React Router |
+| Frontend | React, Vite, TypeScript, React Router, TanStack Query, TipTap, Tailwind |
 | Backend | Node.js, Express, TypeScript |
-| ORM | Prisma 5 |
-| Database | PostgreSQL via Supabase |
+| ORM / DB | Prisma over PostgreSQL (Supabase) with Row-Level Security |
 | Auth | Clerk |
-| Deployment | Vercel (web), Render (api) |
-| Testing | Jest, ts-jest, supertest |
-| CI | GitHub Actions |
+| LLM | OpenAI (`gpt-4o`) |
+| Testing | Jest + supertest (api), Vitest + Testing Library (web) |
+| CI / Deploy | GitHub Actions · Vercel (web) · Render (api) |
 
 ---
 
-## Prerequisites
+## Quickstart
 
-- Node.js >= 20
-- A [Supabase](https://supabase.com) project with two connection strings (pooled + direct)
-- A [Clerk](https://clerk.com) application (separate apps recommended for dev and prod)
-
----
-
-## Local development
-
-**1. Install dependencies**
+**Prerequisites:** Node.js ≥ 20, a [Supabase](https://supabase.com) project
+(pooled + direct connection strings), a [Clerk](https://clerk.com) app, and an
+OpenAI API key (optional — analysis degrades to rules-only without it).
 
 ```bash
+# 1. Install
 npm install
-```
 
-**2. Set up environment variables**
-
-Copy `.env.example` to `.env` and fill in all values:
-
-```bash
+# 2. Configure — copy the template and fill in every value
 cp .env.example .env
-```
+npm run check-env        # validates required vars
 
-See [Environment variables](#environment-variables) below for details on each variable.
-
-**3. Run database migrations**
-
-```bash
+# 3. Migrate the schema
 npm run db:migrate
-```
 
-**4. Apply Row-Level Security**
+# 4. Apply Row-Level Security (once per Supabase project)
+#    Run prisma/manual/001–005 in the Supabase SQL editor, in order.
+#    Each file has instructions at the top. This creates the app_user role,
+#    the RLS policies, and the HR aggregate functions.
 
-Run `prisma/manual/001_rls.sql` in the Supabase SQL editor. The file contains step-by-step instructions at the top. This only needs to be done once per Supabase project.
-
-**5. Seed the database**
-
-```bash
+# 5. Seed synthetic data (destructive)
 npm run seed:reset
+
+# 6. Run the dev servers (two terminals)
+npm run dev:api          # http://localhost:3001
+npm run dev:web          # http://localhost:5173
 ```
 
-This is destructive — it clears all tables and rebuilds with synthetic data (Meridian Capital Partners org, 5 managers, 10 candidates, 12 meetings, 33 bias flags).
-
-**6. Start the development servers**
-
-In two terminals:
-
-```bash
-npm run dev:api   # http://localhost:3001
-npm run dev:web   # http://localhost:5173
-```
+> **Note:** after RLS is applied, `DATABASE_URL` must connect as `app_user`
+> (RLS-enforced). `DIRECT_URL` stays the superuser connection used by migrations
+> and the seed script. This split is the foundation of the privacy model —
+> [docs/SECURITY.md](./docs/SECURITY.md).
 
 ---
 
 ## Environment variables
 
-All variables are documented in `.env.example`. Summary:
+All variables live in `.env.example`. Summary:
 
-| Variable | Where used | Description |
+| Variable | Where | Description |
 |---|---|---|
-| `DATABASE_URL` | api | Supabase pooled connection string — used by Prisma at runtime. Must connect as `app_user` after RLS setup. |
-| `DIRECT_URL` | api, scripts | Supabase direct connection string — used by Prisma migrations and the seed script (superuser, bypasses RLS). |
-| `CLERK_SECRET_KEY` | api | Clerk backend secret key. |
-| `CLERK_PUBLISHABLE_KEY` | api | Clerk publishable key — required by `@clerk/express` middleware. |
-| `VITE_CLERK_PUBLISHABLE_KEY` | web | Same value as above; `VITE_` prefix exposes it to the browser. |
-| `INTERNAL_API_SECRET` | api | Shared secret for `POST /internal/*` routes (used by analysis engine, not Clerk). Generate with `openssl rand -hex 32`. |
-| `WEB_URL` | api | Frontend origin for CORS — e.g. `https://fairhire-azure.vercel.app` in prod, `http://localhost:5173` in dev. |
-| `VITE_API_BASE_URL` | web | API base URL — e.g. `https://fairhire-api.onrender.com` in prod, `http://localhost:3001` in dev. |
-
-Validate that all required variables are set:
-
-```bash
-npm run check-env
-```
+| `DATABASE_URL` | api | Supabase **pooled** string. Connects as `app_user` after RLS setup. |
+| `DIRECT_URL` | api, scripts | Supabase **direct** string. Superuser — migrations + seed (RLS-bypass). |
+| `CLERK_SECRET_KEY` | api | Clerk backend secret. |
+| `CLERK_PUBLISHABLE_KEY` | api | Clerk publishable key (required by `@clerk/express`). |
+| `VITE_CLERK_PUBLISHABLE_KEY` | web | Same value; `VITE_` prefix exposes it to the browser. |
+| `VITE_API_BASE_URL` | web | API base URL (e.g. `http://localhost:3001` in dev). |
+| `WEB_URL` | api | Allowed browser origin(s) for CORS (comma-separated). |
+| `INTERNAL_API_SECRET` | api | Shared secret for `POST /internal/*`. Generate with `openssl rand -hex 32`. |
+| `OPENAI_API_KEY` | api | Enables the LLM analysis layer. Without it, analysis is rules-only. |
+| `OPENAI_MODEL` | api | Optional; defaults to `gpt-4o-2024-08-06`. |
+| `WEB_ORIGIN_REGEX` | api | Optional; overrides the default Vercel preview-URL CORS pattern. |
 
 ---
 
-## Available scripts
+## Scripts
 
 | Script | Description |
 |---|---|
-| `npm run dev:web` | Start Vite dev server |
-| `npm run dev:api` | Start API with tsx watch |
+| `npm run dev:web` / `npm run dev:api` | Start the Vite / API dev servers |
 | `npm run build` | Build all workspaces (shared → api → web) |
 | `npm run type-check` | `tsc --noEmit` across all workspaces |
-| `npm run lint` | ESLint across all workspaces |
-| `npm test --workspace=api` | Run API test suite |
+| `npm run lint` | ESLint across the repo |
+| `npm test --workspace=api` | API test suite (Jest) |
+| `npm test --workspace=web` | Web test suite (Vitest) |
+| `npm run eval` | Run the analysis eval harness ([docs](./docs/EVALUATION.md)) |
 | `npm run seed:reset` | Destructive reseed with synthetic data |
 | `npm run check-env` | Validate required env vars |
-| `npm run db:migrate` | Run Prisma migrations |
-| `npm run db:generate` | Regenerate Prisma client |
-| `npm run db:studio` | Open Prisma Studio |
-
----
-
-## API routes
-
-All routes except `/health`, `/auth/*`, and `/internal/*` require a valid Clerk JWT and a corresponding `Manager` row.
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | none | Health check |
-| `POST` | `/auth/sync` | Clerk JWT | Upsert Manager row on first login |
-| `GET` | `/auth/me` | Clerk JWT + Manager | Return current manager profile |
-| `GET` | `/meetings` | Manager | List own meetings |
-| `POST` | `/meetings` | Manager | Create meeting with transcript |
-| `GET` | `/meetings/:id` | Manager (owner) | Get meeting with flags and last analysis run |
-| `GET` | `/decisions` | Manager | List own decisions |
-| `POST` | `/decisions` | Manager | Create decision for a meeting/candidate |
-| `PATCH` | `/decisions/:id` | Manager (owner) | Update decision outcome |
-| `GET` | `/flags` | Manager | List flags for own meetings |
-| `PATCH` | `/flags/:id/dismiss` | Manager (owner) | Dismiss a flag with a reason |
-| `GET` | `/hr/summary` | hr_admin | Org-wide aggregate flag and decision counts |
-| `POST` | `/internal/analysis/:runId/results` | INTERNAL_API_SECRET header | Analysis engine callback (Week 2) |
-
----
-
-## Database schema
-
-Nine tables with full Row-Level Security. Managers can only read and write their own data — enforced at the Postgres level via a session variable (`app.current_manager_id`) set inside every transaction by `withManagerContext()`.
-
-HR admins access aggregate data only. The `/hr/summary` endpoint uses raw aggregate SQL; individual rows are never returned from any `/hr/*` route.
-
-Key entities:
-
-- **Organisation / Department** — tenant isolation layer
-- **Manager** — linked to Clerk user ID; role is `manager` or `hr_admin`
-- **Candidate** — Singapore-specific demographics: `nationality_status`, `race`, `age_band`, `gender`, plus a `self_reported_demographics` JSONB field
-- **Meeting** — stores the raw interview transcript
-- **Flag** — a detected bias signal: type, excerpt, reasoning, confidence score, optional suggested alternative phrasing, dismissal state
-- **Decision** — hiring outcome per candidate per meeting: `hired`, `rejected`, or `in_progress`
-- **AnalysisRun** — tracks the status of each transcript analysis job
+| `npm run db:migrate` / `db:generate` / `db:studio` | Prisma migrate / client / studio |
 
 ---
 
 ## Testing
 
 ```bash
-npm test --workspace=api
+npm test --workspace=api    # 268 tests (mock-based; no DB needed)
+npm test --workspace=web    # 80 tests
 ```
 
-Six tests across three files, covering the Week 1 security checklist:
+The default API suite mocks Clerk and Prisma, so it needs no database. RLS
+correctness is validated by two **opt-in integration suites** that run against a
+live RLS-applied database:
 
-| File | Tests |
-|---|---|
-| `meetings.test.ts` | Scope isolation (own meetings only), cross-manager 403 |
-| `hr.test.ts` | Aggregate response shape for hr_admin, 403 for regular manager |
-| `internal.test.ts` | 401 for missing secret header, 401 for wrong secret header |
+```bash
+# apply prisma/manual/001–005 + seed, then:
+INTEGRATION=1 npm test --workspace=api
+```
 
-Clerk and Prisma are fully mocked — no database connection or real token required.
+These add adversarial cross-tenant isolation tests and a policy-coverage matrix
+that asserts every table's exact RLS command set. See
+[docs/SECURITY.md → How it's proven](./docs/SECURITY.md#how-its-proven).
 
-**Note on RLS:** These tests validate application-layer enforcement (route `where` clauses, `requireOwnership`, `requireRole`). Postgres RLS policy correctness is validated separately by `scripts/check-rls.ts`, which confirms all 9 tables have RLS enabled and all 21 policies are present.
+---
+
+## Seed data
+
+`npm run seed:reset` builds a synthetic organisation — **Meridian Capital
+Partners** — with 6 divisions, 5 managers (incl. one HR admin), 10 candidates, 12
+meetings, and 31 flags. The transcripts contain deliberate, distinct bias
+patterns (e.g. communication concerns concentrated on some groups, "culture fit"
+hedging, age/energy framing) so the [eval harness](./docs/EVALUATION.md) has
+ground truth to score against, plus a clean control case.
+
+All names and data are fictional.
 
 ---
 
 ## Deployment
 
-**Frontend — Vercel**
+- **Frontend (Vercel):** `vercel.json` at the root configures the build. Set
+  `VITE_CLERK_PUBLISHABLE_KEY` and `VITE_API_BASE_URL`.
+- **Backend (Render):** `render.yaml` defines the service (build runs
+  `prisma generate`). Set `DATABASE_URL`, `DIRECT_URL`, `CLERK_SECRET_KEY`,
+  `CLERK_PUBLISHABLE_KEY`, `INTERNAL_API_SECRET`, `WEB_URL`, and `OPENAI_API_KEY`.
 
-The `vercel.json` at the project root configures the build. Set these environment variables in the Vercel dashboard:
-
-- `VITE_CLERK_PUBLISHABLE_KEY`
-- `VITE_API_BASE_URL`
-
-**Backend — Render**
-
-The `render.yaml` at the project root defines the service. Set these environment variables in the Render dashboard:
-
-- `DATABASE_URL`
-- `DIRECT_URL`
-- `CLERK_SECRET_KEY`
-- `CLERK_PUBLISHABLE_KEY`
-- `INTERNAL_API_SECRET`
-- `WEB_URL`
-
-The build command runs `prisma generate` automatically — no manual step needed on Render.
-
----
-
-## Bias patterns in seed data
-
-The synthetic dataset (`npm run seed:reset`) contains four distinct bias patterns, designed to be detectable by the analysis engine in Week 2:
-
-| Manager | Pattern | Description |
-|---|---|---|
-| Wei Liang Tan | `criteria_drift` | Language and communication concerns raised disproportionately for Malay and Indian candidates |
-| Priya Nair | `asymmetric_concern` | Family planning and childcare questions asked of female candidates only |
-| David Lim | `hedging_language` + `age_bias` | Vague "culture fit" language for non-Chinese candidates; "energy" concerns for 50+ candidates |
-| Marcus Chen | clean | Two low-confidence false positives, both dismissed — control case |
+RLS SQL (`prisma/manual/001–005`) is applied once per Supabase project via the
+SQL editor — it is not part of the automated build.
