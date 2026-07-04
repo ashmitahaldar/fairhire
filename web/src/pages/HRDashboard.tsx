@@ -175,6 +175,17 @@ function OverviewTab({
   // we only render the strip when they resolve with at least one reflection.
   const visibleNudges = nudges.data?.nudges ?? [];
 
+  // Unlike the Mirror (always exactly three), HR fires a variable 0–3. Size the
+  // grid to the count so one or two nudges fill the row instead of floating in a
+  // fixed 3-column track with empty cells. Literal classes keep Tailwind's JIT
+  // happy (it can't see an interpolated `grid-cols-${n}`).
+  const nudgeCols =
+    visibleNudges.length === 1
+      ? 'grid-cols-1'
+      : visibleNudges.length === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-3';
+
   return (
     <>
       <p className="font-serif text-section text-ink leading-snug max-w-3xl [text-wrap:pretty] mb-12">
@@ -190,7 +201,7 @@ function OverviewTab({
           caption="Drawn from the organisation-wide aggregates below — never an individual manager."
           anchor="hr-nudges"
         >
-          <div className="grid grid-cols-3 gap-4">
+          <div className={`grid ${nudgeCols} gap-4`}>
             {visibleNudges.map((n) => (
               <NudgeCard
                 key={n.id}

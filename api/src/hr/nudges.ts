@@ -54,15 +54,19 @@ const orgDominantCategory: Rule = ({ flags }) => {
   if (next.count === 0) return null;
   if (top.count < next.count * HR_NUDGE_TOP_CATEGORY_DOMINANCE_RATIO) return null;
 
-  const ratio = Math.round(top.count / next.count);
+  // Floor to one decimal so the headline never rounds UP — Math.round turns a
+  // 2.5× lead into "3×", over-stating exactly the way the conservative-by-design
+  // thresholds are meant to avoid. Sort on the true ratio, not the display value.
+  const multiple = top.count / next.count;
+  const display = (Math.floor(multiple * 10) / 10).toFixed(1);
   return {
     nudge: {
       id: 'hr-top-category-dominance',
       tag: 'Organisation · language',
-      sentence: `Across the organisation, "${FLAG_TYPE_LABELS[top.type]}" is the most-flagged category this period — ${ratio}× the next most common. Worth checking whether the bar is applied evenly across candidates.`,
+      sentence: `Across the organisation, "${FLAG_TYPE_LABELS[top.type]}" is the most-flagged category this period — ${display}× the next most common. Worth checking whether the bar is applied evenly across candidates.`,
       linkTo: 'Flags',
     },
-    severity: ratio,
+    severity: multiple,
   };
 };
 

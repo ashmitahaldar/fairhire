@@ -98,10 +98,37 @@ export function CandidateDetailModal({ candidate, onClose }: CandidateDetailModa
   }, [candidate, onClose]);
 
   // Move focus into the panel when it opens so keyboard/screen-reader users
-  // start inside the dialog rather than on the page underneath.
+  // start inside the dialog rather than on the page underneath — and return it
+  // to whatever had focus (the candidate-name trigger) on close, so focus never
+  // silently drops to <body> when the dialog goes away.
   useEffect(() => {
-    if (candidate) requestAnimationFrame(() => panelRef.current?.focus());
+    if (!candidate) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => panelRef.current?.focus());
+    return () => previouslyFocused?.focus();
   }, [candidate]);
+
+  // Minimal focus trap, mirroring CandidateModal: Tab from the last focusable
+  // child wraps to the first, Shift+Tab from the first wraps to the last, so
+  // focus can't walk out to the page underneath. Includes a[href] because this
+  // dialog's "Open debrief" links are the primary controls.
+  const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!candidate) return null;
 
@@ -127,6 +154,7 @@ export function CandidateDetailModal({ candidate, onClose }: CandidateDetailModa
         ref={panelRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={onPanelKeyDown}
         className="w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-surface rounded-card shadow-float border border-hairline outline-none"
       >
         {/* Header */}

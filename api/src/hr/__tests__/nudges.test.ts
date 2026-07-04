@@ -63,7 +63,18 @@ describe('orgDominantCategory', () => {
     const n = nudges.find((x) => x.id === 'hr-top-category-dominance');
     expect(n).toBeDefined();
     expect(n!.linkTo).toBe('Flags');
-    expect(n!.sentence).toContain('3×'); // 12 / 4 rounded
+    expect(n!.sentence).toContain('3.0×'); // 12 / 4
+  });
+
+  it('floors the displayed multiple rather than rounding up (never over-claims)', () => {
+    // 10 / 4 = 2.5×. Must read "2.5×", not "3×" — the whole point of flooring.
+    const input = inputs({
+      flags: flagsResp([ft('criteria_drift', 10), ft('age_bias', 4)]),
+    });
+    const n = buildHrNudges(input).find((x) => x.id === 'hr-top-category-dominance');
+    expect(n).toBeDefined();
+    expect(n!.sentence).toContain('2.5×');
+    expect(n!.sentence).not.toContain('3×');
   });
 
   it('does not fire below the absolute count floor (8)', () => {
