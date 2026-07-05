@@ -140,7 +140,7 @@ All variables live in `.env.example`. Summary:
 
 ```bash
 npm test --workspace=api    # 268 tests (mock-based; no DB needed)
-npm test --workspace=web    # 80 tests
+npm test --workspace=web    # 81 tests
 ```
 
 The default API suite mocks Clerk and Prisma, so it needs no database. RLS
@@ -162,9 +162,12 @@ that asserts every table's exact RLS command set. See
 
 `npm run seed:reset` builds a synthetic organisation — **Meridian Capital
 Partners** — with 6 divisions, 5 managers (incl. one HR admin), 10 candidates, 12
-meetings, and 31 flags. The transcripts contain deliberate, distinct bias
-patterns (e.g. communication concerns concentrated on some groups, "culture fit"
-hedging, age/energy framing) so the [eval harness](./docs/EVALUATION.md) has
+meetings, and 34 flags. All timestamps are anchored to the moment the seed runs
+(most meetings in the trailing 90-day window, two in the prior window), so the
+Pattern Mirror and HR Overview — which default to "Last 90 days" — are populated
+on a fresh run rather than aged out. The transcripts contain deliberate, distinct
+bias patterns (e.g. communication concerns concentrated on some groups, "culture
+fit" hedging, age/energy framing) so the [eval harness](./docs/EVALUATION.md) has
 ground truth to score against, plus a clean control case.
 
 All names and data are fictional.

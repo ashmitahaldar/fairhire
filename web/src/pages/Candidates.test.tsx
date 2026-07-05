@@ -9,6 +9,8 @@ vi.mock('@clerk/clerk-react', () => ({
 
 import Candidates from './Candidates';
 import type { CandidateFlag, CandidateListItem } from '../lib/candidatesApi';
+import { ManagerContext, type ManagerProfile } from '../lib/ManagerContext';
+import type { Role } from '@fairhire/shared';
 
 function row(
   overrides: Partial<CandidateListItem> & Pick<CandidateListItem, 'id' | 'name'>,
@@ -26,13 +28,23 @@ function row(
   };
 }
 
-function renderPage() {
+function renderPage(role: Role = 'manager') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const profile: ManagerProfile = {
+    id: 'm-self',
+    name: 'Test Manager',
+    email: 'test@example.com',
+    role,
+    orgId: 'org-1',
+    deptId: 'dept-1',
+  };
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <Candidates />
-      </MemoryRouter>
+      <ManagerContext.Provider value={profile}>
+        <MemoryRouter>
+          <Candidates />
+        </MemoryRouter>
+      </ManagerContext.Provider>
     </QueryClientProvider>
   );
 }
@@ -174,6 +186,19 @@ describe('Candidates page', () => {
     const del = screen.getByRole('button', { name: /^Delete$/ });
     expect((edit as HTMLButtonElement).disabled).toBe(true);
     expect((del as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('replaces the row actions with "View only" for HR admins', async () => {
+    // HR never interviews, so canModify is false on every row. Rather than show
+    // uniformly greyed Edit/Delete (which reads as broken), HR sees "View only".
+    mockCandidates([row({ id: 'c1', name: 'Hannah Lim', canModify: false })]);
+
+    renderPage('hr_admin');
+
+    await screen.findByText('Hannah Lim');
+    expect(screen.getByText('View only')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Edit$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Delete$/ })).toBeNull();
   });
 
   it('filters the list by search input', async () => {

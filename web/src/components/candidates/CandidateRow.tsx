@@ -12,6 +12,10 @@ interface CandidateRowProps {
   onOpen: (candidate: CandidateListItem) => void;
   onEdit: (candidate: CandidateListItem) => void;
   onDelete: (candidate: CandidateListItem) => void;
+  // HR admins never interview, so every row's Edit/Delete would be greyed. We
+  // replace them with a quiet "View only" so the read-only stance reads as
+  // intentional rather than as broken, disabled controls.
+  isHr?: boolean;
 }
 
 const RACE_SHORT: Record<Race, string> = {
@@ -43,7 +47,13 @@ function formatDate(iso: string): string {
 // the Flag Review decision panel, and the Pattern Mirror summary read the
 // same vocabulary (Hired / Declined / Pending).
 
-export function CandidateRow({ candidate, onOpen, onEdit, onDelete }: CandidateRowProps) {
+export function CandidateRow({
+  candidate,
+  onOpen,
+  onEdit,
+  onDelete,
+  isHr = false,
+}: CandidateRowProps) {
   const chip = demographicsChip(candidate.demographics);
   const lock = candidate.canModify
     ? undefined
@@ -85,24 +95,30 @@ export function CandidateRow({ candidate, onOpen, onEdit, onDelete }: CandidateR
         {formatDate(candidate.createdAt)}
       </td>
       <td className="py-3 border-b border-hairline text-right whitespace-nowrap">
-        <button
-          type="button"
-          onClick={() => onEdit(candidate)}
-          disabled={!candidate.canModify}
-          title={lock}
-          className="text-sm font-medium text-ink-secondary hover:text-ink transition-colors duration-120 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ink-secondary mr-4"
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(candidate)}
-          disabled={!candidate.canModify}
-          title={lock}
-          className="text-sm font-medium text-accent hover:underline transition-colors duration-120 disabled:opacity-30 disabled:cursor-not-allowed disabled:no-underline"
-        >
-          Delete
-        </button>
+        {isHr ? (
+          <span className="font-serif italic text-sm text-ink-tertiary">View only</span>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onEdit(candidate)}
+              disabled={!candidate.canModify}
+              title={lock}
+              className="text-sm font-medium text-ink-secondary hover:text-ink transition-colors duration-120 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ink-secondary mr-4"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(candidate)}
+              disabled={!candidate.canModify}
+              title={lock}
+              className="text-sm font-medium text-accent hover:underline transition-colors duration-120 disabled:opacity-30 disabled:cursor-not-allowed disabled:no-underline"
+            >
+              Delete
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );

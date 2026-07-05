@@ -264,6 +264,19 @@ async function main() {
 
   console.log('[seed] Creating meetings...');
 
+  // All timestamps below are anchored to the moment the seed runs, not to fixed
+  // calendar dates. Hard-coded dates silently age out of the dashboards' rolling
+  // windows — the Pattern Mirror and HR Overview both default to "Last 90 days",
+  // so a seed dated months back renders every analytics view empty. Ten meetings
+  // land in the current 90-day window (so those views are populated on a fresh
+  // demo); m7 and m9 sit in the *prior* window so the period-over-period deltas
+  // are non-empty. The prior window deliberately carries only asymmetric_concern
+  // and hedging_language flags — no criteria_drift — so no type both clears the
+  // surge count floor AND has a non-zero prior baseline, which keeps the HR nudge
+  // set deterministic (composition-shift + dominant-category + dismissal-rate).
+  const now = new Date();
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
+
   const [
     m1, m2, m3, m4,
     m5, m6, m7, m8,
@@ -277,7 +290,7 @@ async function main() {
         managerId: wei.id,
         title: 'Associate Analyst Interview — Ahmad Faris',
         transcript: transcripts.wei_ahmad,
-        date: new Date('2026-01-15'),
+        date: daysAgo(82), // current window
       },
     }),
     prisma.meeting.create({
@@ -286,7 +299,7 @@ async function main() {
         managerId: wei.id,
         title: 'Senior Analyst Interview — Rajesh Kumar',
         transcript: transcripts.wei_rajesh,
-        date: new Date('2026-01-22'),
+        date: daysAgo(70), // current window
       },
     }),
     prisma.meeting.create({
@@ -295,7 +308,7 @@ async function main() {
         managerId: wei.id,
         title: 'Associate Interview — Muhammad Azri',
         transcript: transcripts.wei_muhammad,
-        date: new Date('2026-02-05'),
+        date: daysAgo(60), // current window
       },
     }),
     prisma.meeting.create({
@@ -304,7 +317,7 @@ async function main() {
         managerId: wei.id,
         title: 'Analyst Interview — Kevin Tan',
         transcript: transcripts.wei_kevin,
-        date: new Date('2026-02-12'),
+        date: daysAgo(36), // current window — Kevin hired (composition-shift)
       },
     }),
     // Priya Nair — asymmetric_concern pattern
@@ -314,7 +327,7 @@ async function main() {
         managerId: priya.id,
         title: 'Analyst Interview — Siti Nurhaliza',
         transcript: transcripts.priya_siti,
-        date: new Date('2026-01-18'),
+        date: daysAgo(78), // current window
       },
     }),
     prisma.meeting.create({
@@ -323,7 +336,7 @@ async function main() {
         managerId: priya.id,
         title: 'Associate Director Interview — Nurul Izzah',
         transcript: transcripts.priya_nurul,
-        date: new Date('2026-02-03'),
+        date: daysAgo(52), // current window
       },
     }),
     prisma.meeting.create({
@@ -332,7 +345,7 @@ async function main() {
         managerId: priya.id,
         title: 'Director Interview — Lakshmi Krishnamurthy',
         transcript: transcripts.priya_lakshmi,
-        date: new Date('2026-02-20'),
+        date: daysAgo(105), // PRIOR window (feeds delta, not surge)
       },
     }),
     prisma.meeting.create({
@@ -341,7 +354,7 @@ async function main() {
         managerId: priya.id,
         title: 'Associate Interview — Mei Ling Chua',
         transcript: transcripts.priya_mei_ling,
-        date: new Date('2026-03-10'),
+        date: daysAgo(20), // current window — Mei Ling hired (composition-shift)
       },
     }),
     // David Lim — hedging_language + age_bias pattern
@@ -351,7 +364,7 @@ async function main() {
         managerId: david.id,
         title: 'Senior Analyst 2nd Round — Rajesh Kumar',
         transcript: transcripts.david_rajesh,
-        date: new Date('2026-01-25'),
+        date: daysAgo(125), // PRIOR window (feeds delta, not surge)
       },
     }),
     prisma.meeting.create({
@@ -360,7 +373,7 @@ async function main() {
         managerId: david.id,
         title: 'Director Interview — Ravi Shankar',
         transcript: transcripts.david_ravi,
-        date: new Date('2026-02-08'),
+        date: daysAgo(44), // current window
       },
     }),
     prisma.meeting.create({
@@ -369,7 +382,7 @@ async function main() {
         managerId: david.id,
         title: 'Director 2nd Round — Lakshmi Krishnamurthy',
         transcript: transcripts.david_lakshmi,
-        date: new Date('2026-02-28'),
+        date: daysAgo(28), // current window
       },
     }),
     // Marcus Chen — clean
@@ -379,7 +392,7 @@ async function main() {
         managerId: marcus.id,
         title: 'Analyst Final Round — Kevin Tan',
         transcript: transcripts.marcus_kevin,
-        date: new Date('2026-03-05'),
+        date: daysAgo(10), // current window — Kevin hired (composition-shift)
       },
     }),
   ]);
@@ -596,6 +609,39 @@ async function main() {
       },
       {
         orgId: org.id,
+        meetingId: m2.id,
+        flagType: 'criteria_drift',
+        excerpt: 'His written work was solid, but I keep coming back to how he would sound on a live client call.',
+        reasoning:
+          'Spoken-communication concern introduced late as a decisive factor for a candidate whose written analysis was rated strong. No comparable note appears in reviews of majority-background candidates at this level this cycle.',
+        confidenceScore: 0.84,
+        suggestedAlt:
+          'If client-call delivery matters, assess it directly with a short spoken exercise applied to every shortlisted candidate.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m2.id,
+        flagType: 'criteria_drift',
+        excerpt: 'Would want to see clearer spoken English before we put him in front of clients.',
+        reasoning:
+          '"Clearer spoken English" is framed as a gating requirement, tied to accent rather than to a communication failure observed in the interview. Not applied to comparable candidates in this review set.',
+        confidenceScore: 0.87,
+        suggestedAlt:
+          'Define the specific communication standard the role requires and record how each candidate was assessed against it.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m3.id,
+        flagType: 'criteria_drift',
+        excerpt: 'A few figures were hard to catch during the walkthrough because of how he pronounces them.',
+        reasoning:
+          'Pronunciation raised as a substantive concern. Pronunciation is not a job-relevant criterion; the job-relevant question is whether the figures were communicated accurately and understood.',
+        confidenceScore: 0.85,
+        suggestedAlt:
+          'Note whether the figures were actually correct and understood, rather than commenting on the candidate\'s pronunciation.',
+      },
+      {
+        orgId: org.id,
         meetingId: m3.id,
         flagType: 'criteria_drift',
         excerpt: 'Delivery was sometimes unclear, especially during the live case walkthrough portion.',
@@ -628,7 +674,7 @@ async function main() {
           'Describe the observed communication challenge specifically: was it vocabulary, structure, speed, or comprehension? Avoid framing that implies a language deficit not supported by evidence.',
         dismissed: true,
         dismissReason: 'Candidate acknowledged this as an area of active development; concern is noted but not pattern-forming on its own.',
-        dismissedAt: new Date('2026-02-07'),
+        dismissedAt: daysAgo(58),
         dismissedBy: wei.id,
       },
     ],
@@ -704,7 +750,7 @@ async function main() {
           'Ask the candidate directly whether they can meet the availability requirements rather than making assumptions based on family status.',
         dismissed: true,
         dismissReason: 'Candidate herself raised schedule flexibility as a requirement early in the interview.',
-        dismissedAt: new Date('2026-02-05'),
+        dismissedAt: daysAgo(50),
         dismissedBy: priya.id,
       },
       {
@@ -800,6 +846,10 @@ async function main() {
         confidenceScore: 0.89,
         suggestedAlt:
           'Assess pace and stamina through structured questions about recent workload and deal timelines, applied consistently to all candidates.',
+        dismissed: true,
+        dismissReason: 'Reviewed with the panel — treated as a general observation about the desk, not a factor in the decision.',
+        dismissedAt: daysAgo(42),
+        dismissedBy: david.id,
       },
       {
         orgId: org.id,
@@ -823,7 +873,7 @@ async function main() {
         suggestedAlt: null,
         dismissed: true,
         dismissReason: 'Valid technical concern: candidate confirmed he had not used Bloomberg Terminal in two years and was unfamiliar with current data workflows. Not an age-based assumption.',
-        dismissedAt: new Date('2026-02-10'),
+        dismissedAt: daysAgo(42),
         dismissedBy: david.id,
       },
       {
@@ -836,6 +886,10 @@ async function main() {
         confidenceScore: 0.87,
         suggestedAlt:
           'If stamina in long deal cycles is a genuine concern, ask all candidates about their longest recent transaction and how they managed the workload. Do not predict team reaction based on candidate age.',
+        dismissed: true,
+        dismissReason: 'Panel agreed stamina was not actually evidenced in the interview; noted but set aside.',
+        dismissedAt: daysAgo(42),
+        dismissedBy: david.id,
       },
       {
         orgId: org.id,
@@ -869,6 +923,10 @@ async function main() {
         confidenceScore: 0.86,
         suggestedAlt:
           'If pace is a concern, describe a specific moment in the interview (e.g., response time, analytical approach speed) that supports the assessment.',
+        dismissed: true,
+        dismissReason: 'Discussed and set aside; pace was not a deciding factor in the outcome.',
+        dismissedAt: daysAgo(26),
+        dismissedBy: david.id,
       },
       {
         orgId: org.id,
@@ -900,16 +958,16 @@ async function main() {
         meetingId: m1.id,
         status: 'completed',
         modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: new Date('2026-01-15T14:05:00Z'),
-        completedAt: new Date('2026-01-15T14:05:47Z'),
+        startedAt: daysAgo(82),
+        completedAt: new Date(daysAgo(82).getTime() + 47_000),
       },
       {
         orgId: org.id,
         meetingId: m5.id,
         status: 'completed',
         modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: new Date('2026-01-18T16:12:00Z'),
-        completedAt: new Date('2026-01-18T16:12:53Z'),
+        startedAt: daysAgo(78),
+        completedAt: new Date(daysAgo(78).getTime() + 53_000),
       },
       // Marcus's clean debrief — completed with no flags. (Previously seeded
       // as a permanently 'pending' run, which the 1.5s poller spun on forever;
@@ -920,8 +978,8 @@ async function main() {
         meetingId: m12.id,
         status: 'completed',
         modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: new Date('2026-03-05T10:00:00Z'),
-        completedAt: new Date('2026-03-05T10:00:41Z'),
+        startedAt: daysAgo(10),
+        completedAt: new Date(daysAgo(10).getTime() + 41_000),
       },
     ],
   });

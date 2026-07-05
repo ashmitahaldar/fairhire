@@ -9,6 +9,7 @@ import { CandidateRow } from '../components/candidates/CandidateRow';
 import { CandidateModal } from '../components/candidates/CandidateModal';
 import { CandidateDetailModal } from '../components/candidates/CandidateDetailModal';
 import { InlineError, TableSkeleton } from '../components/shared/primitives';
+import { useManager } from '../lib/ManagerContext';
 
 // Candidates CRUD page. Lists every candidate in the org, sortable by
 // header click and filterable via search box. Add/Edit open the same
@@ -27,6 +28,10 @@ interface SortState {
 export default function Candidates() {
   const query = useCandidatesList();
   const softDelete = useSoftDeleteCandidate();
+  // HR admins conduct no interviews, so `canModify` is false on every row and the
+  // Edit/Delete controls would be uniformly greyed — which reads as broken rather
+  // than intentional. For HR we drop the row actions entirely (see CandidateRow).
+  const isHr = useManager().role === 'hr_admin';
 
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortState>({ key: 'name', dir: 'asc' });
@@ -125,6 +130,7 @@ export default function Candidates() {
             onOpen={openDetail}
             onEdit={openEdit}
             onDelete={onDelete}
+            isHr={isHr}
           />
         </>
       )}
@@ -231,9 +237,18 @@ interface TableProps {
   onOpen: (c: CandidateListItem) => void;
   onEdit: (c: CandidateListItem) => void;
   onDelete: (c: CandidateListItem) => void;
+  isHr: boolean;
 }
 
-function CandidatesTable({ candidates, sort, onToggleSort, onOpen, onEdit, onDelete }: TableProps) {
+function CandidatesTable({
+  candidates,
+  sort,
+  onToggleSort,
+  onOpen,
+  onEdit,
+  onDelete,
+  isHr,
+}: TableProps) {
   return (
     <div className="border-t border-hairline overflow-x-auto">
       <table className="w-full text-base min-w-[720px]">
@@ -277,6 +292,7 @@ function CandidatesTable({ candidates, sort, onToggleSort, onOpen, onEdit, onDel
               onOpen={onOpen}
               onEdit={onEdit}
               onDelete={onDelete}
+              isHr={isHr}
             />
           ))}
         </tbody>
