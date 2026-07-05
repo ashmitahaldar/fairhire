@@ -8,6 +8,7 @@ Everything for the UBS Talent Program showcase lives here.
 | `fairhire.css` | The FairHire theme (editorial palette, Source Serif / Inter / JetBrains Mono). |
 | `DEMO-SCRIPT.md` | Shot-by-shot guide for recording the ~3-min product demo video. |
 | `vendor/reveal/` | Vendored reveal.js 6 (so the deck runs with no network). |
+| `fonts/` | Self-hosted Source Serif 4 / Inter / JetBrains Mono (OFL-1.1) — the deck's fonts, offline. |
 
 ## Presenting the deck
 
@@ -72,5 +73,7 @@ http://localhost:8080/?print-pdf
   on the next key press; put talk-track in `<aside class="notes">`.
 - Colours, fonts and the recreated UI motifs (flag card, nudge strip, chart) live in
   `fairhire.css` — all driven by the same OKLCH tokens as the real app.
-- Fonts load from Google Fonts; **offline they fall back** to Georgia / system-ui / Menlo,
-  so the deck still reads correctly with no network.
+- Fonts are **self-hosted** in `fonts/` (Source Serif 4 / Inter / JetBrains Mono, variable
+  woff2, OFL-1.1) and declared via `@font-face` in `fairhire.css` — the deck renders the
+  exact product typefaces with **no network at all**. Georgia / system-ui / Menlo remain
+  only as ultimate fallbacks.
