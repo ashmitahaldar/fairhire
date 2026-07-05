@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FairHire — UBS Talent Program Showcase</title>
+
+  <!-- Fonts are self-hosted (see @font-face in fairhire.css + the fonts/ dir):
+       Source Serif 4 (editorial), Inter (UI), JetBrains Mono (data).
+       Nothing loads from the network. -->
+
+  <link rel="stylesheet" href="vendor/reveal/reset.css" />
+  <link rel="stylesheet" href="vendor/reveal/reveal.css" />
+  <link rel="stylesheet" href="fairhire.css" />
+</head>
+<body class="is-title">
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- ── 1 · Title ─────────────────────────────────────────────────── -->
+      <section class="slide-title">
+        <p class="wordmark">FairHire</p>
+        <p class="tagline">A <b>mirror, not a cop</b> — bias-awareness for hiring&nbsp;&amp;&nbsp;promotion decisions.</p>
+        <p class="byline"><span class="who">Ashmita Haldar</span> &nbsp;·&nbsp; UBS Tomorrow&rsquo;s Talent Program: Technology 2026 &nbsp;·&nbsp; Singapore</p>
+        <p class="live"><span class="dot"></span>Live at <a href="https://fairhire-azure.vercel.app">fairhire-azure.vercel.app</a></p>
+        <aside class="notes">
+          Opening line: "FairHire helps managers catch bias in their own hiring and
+          promotion decisions — before the decision is final. The whole product is built
+          on one idea: it's a mirror, not a cop. It reflects your patterns back to you
+          privately, instead of policing you. I'll walk through the problem, the three
+          things I built, and the two engineering decisions I'm most proud of."
+        </aside>
+      </section>
+
+      <!-- ── 2 · The problem ──────────────────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">The problem</p>
+        <h2>Bias hides in the <em>language</em> of the debrief.</h2>
+        <div class="fh-stack" style="margin-top: 8px;">
+          <div class="fragment">
+            <p style="font-family: var(--font-serif); font-style: italic; font-size: 24px; color: var(--color-ink); line-height: 1.9;">
+              &ldquo;He's not really a <span class="fh-span">culture fit</span>.&rdquo; &nbsp;
+              &ldquo;She lacks <span class="fh-span">executive presence</span>.&rdquo; &nbsp;
+              &ldquo;Great <span class="fh-span">energy</span> — maybe not enough gravitas.&rdquo;
+            </p>
+          </div>
+          <p class="fh-body fragment">No one here is a villain — we're just wired to favour people who <strong>remind us of ourselves</strong>, often before we're even aware of it.</p>
+          <p class="fh-body fragment"><strong>One debrief looks fine. The pattern across ten is invisible</strong> — and no one ever shows the manager their own.</p>
+        </div>
+        <aside class="notes">
+          Where this started for me: I'd been reading about why interviewers tend to favour
+          candidates who remind them of themselves — even when they're actively trying not
+          to — and it stuck with me. What hooked me wasn't the fairness angle, it was the
+          psychology: our brains run shortcuts below the level of intention, and good
+          intentions don't reach them. So bias in hiring is rarely a slur — it's coded,
+          plausible language that shifts the bar. "Culture fit," "presence," "energy." Each
+          note passes review; the signal only shows up in aggregate, and nobody ever
+          reflects it back to the manager. That gap is the opportunity.
+        </aside>
+      </section>
+
+      <!-- ── 3 · The reframe ──────────────────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">The insight</p>
+        <h2>Audit tools <em>police</em>. FairHire <em>reflects</em>.</h2>
+        <div class="fh-stack" style="margin-top: 10px;">
+          <p class="fh-lede fragment">The real question isn&rsquo;t &ldquo;were you fair?&rdquo; — everyone says yes. It&rsquo;s: <strong>make the invisible patterns visible, without making the manager feel watched.</strong></p>
+          <p class="fh-lede fragment">So FairHire is a <strong>private review tool for the decision-maker</strong> — the way a writer uses a spell-checker. You see your patterns first; no one is looking over your shoulder.</p>
+          <hr class="fh-rule fragment" />
+          <p class="fragment" style="font-family: var(--font-serif); font-size: 30px; color: var(--color-accent);">Get that trust wrong, and nothing else matters.</p>
+        </div>
+        <aside class="notes">
+          This is how I re-read the brief. The brief asks how tech can help managers spot
+          bias; the more useful framing is "make invisible things visible without making
+          the manager feel watched." A compliance tool that only relies on judgment gets routed
+          around — people write blander notes and the bias just goes unrecorded, which is
+          worse. So I flipped it: the manager is the first and primary audience for their
+          own data. A mirror they choose to look into. That reframe drives every privacy
+          decision that follows — the next slide.
+        </aside>
+      </section>
+
+      <!-- ── 4 · The trust contract ───────────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">The trust contract</p>
+        <h2>Who sees what.</h2>
+        <div class="fh-cols" style="margin-top: 6px;">
+          <div class="fh-card fragment">
+            <p class="fh-meta" style="color: var(--color-accent);">The manager</p>
+            <p style="font-family: var(--font-serif); font-size: 22px; margin-top: 10px; line-height: 1.4;">Sees only <strong>their own</strong> interviews and their own patterns. Nothing about anyone else's.</p>
+          </div>
+          <div class="fh-card fragment">
+            <p class="fh-meta" style="color: var(--color-accent);">HR</p>
+            <p style="font-family: var(--font-serif); font-size: 22px; margin-top: 10px; line-height: 1.4;">Sees only <strong>anonymised, org-level aggregates</strong> — never an individual manager's data or a candidate's excerpt.</p>
+          </div>
+        </div>
+        <p class="fragment" style="margin-top: 26px; font-family: var(--font-serif); font-style: italic; font-size: 24px; color: var(--color-ink);">
+          Not a policy. <span class="fh-accent">Enforced at the database layer</span> — and proven by tests.
+        </p>
+        <aside class="notes">
+          This boundary is the trust contract. A manager never sees a colleague's
+          interviews. HR gets the org picture but can't drill into a person. The important
+          part — and I'll show how — this isn't a promise in a privacy policy or an if-
+          statement in my code that I could get wrong. It's enforced by Postgres itself,
+          and I wrote adversarial tests that try to break it and confirm they can't.
+        </aside>
+      </section>
+
+      <!-- ── 5 · Surface 1: Decision Companion ────────────────────────── -->
+      <section>
+        <p class="fh-kicker">Surface 1 — for the manager, per decision</p>
+        <h3>Decision Companion</h3>
+        <div class="fh-cols" style="margin-top: 8px; grid-template-columns: 1fr 1.05fr;">
+          <ul class="fh-list fragment">
+            <li>Paste the debrief transcript — <strong>flagged spans light up inline</strong>, with margin notes beside them.</li>
+            <li>Each flag: the <strong>quote</strong>, why it was flagged, and a <strong>fairer alternative</strong>.</li>
+            <li><strong>High / Medium / Low</strong> severity, each with its confidence.</li>
+            <li>Disagree? <strong>Dismiss it with a reason</strong> — and that disagreement is useful too.</li>
+          </ul>
+          <div class="fh-flagcard fragment">
+            <span class="fh-sev high">High</span>
+            <p class="cat">Asymmetric concern</p>
+            <p class="quote">&ldquo;I worry his accent might be hard for some clients to follow.&rdquo;</p>
+            <p class="why">A communication concern raised for this candidate but not for comparable candidates in the same panel.</p>
+            <div class="suggested">
+              <span class="lbl">Suggested</span>
+              Name the specific, job-relevant requirement — and apply it to every candidate equally.
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          This is where a manager lands right after an interview. The transcript is on the
+          left with the flagged phrases underlined; the cards on the right explain each one
+          and suggest a fairer way to say it. Note it's not scolding — it gives you a
+          rewrite. And if the tool is wrong, you dismiss it with a reason, which becomes a
+          useful signal for HR later. On the live demo you'll see these stream in one by
+          one with a Replay button.
+        </aside>
+      </section>
+
+      <!-- ── DEMO GIF slot (optional) ──────────────────────────────────────
+           Record a clip, save it to presentation/media/, then UNCOMMENT the
+           <section> below. GIFs autoplay & loop on their own. For a sharper,
+           smaller file use the <video> variant instead. Copy this block to
+           drop a clip anywhere between slides — just change src + caption.
+
+      <section class="fh-media-slide" data-background-color="#F6F4EF">
+        <img src="media/companion.gif" alt="Decision Companion — flags streaming in" />
+        <p class="fh-media-cap">Decision Companion — flags surface as the transcript is analysed</p>
+      </section>
+
+        MP4 variant (better quality / smaller file):
+      <section class="fh-media-slide" data-background-color="#F6F4EF">
+        <video src="media/companion.mp4" data-autoplay loop muted playsinline></video>
+        <p class="fh-media-cap">Decision Companion — flags surface as the transcript is analysed</p>
+      </section>
+      ─────────────────────────────────────────────────────────────────────── -->
+
+      <!-- ── 6 · Surface 2: Pattern Mirror ────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">Surface 2 — for the manager, over time</p>
+        <h3>Pattern Mirror</h3>
+        <div class="fh-cols" style="margin-top: 8px; grid-template-columns: 1fr 1fr;">
+          <ul class="fh-list fragment">
+            <li>Your <strong>own</strong> interviews over 30 / 90 / 365 days.</li>
+            <li>Which flag categories recur; where they cluster.</li>
+            <li>Separate lenses for <strong>hiring</strong> and <strong>promotion</strong>.</li>
+            <li><strong>Three nudges from your own data</strong> — plain-language, never a scorecard.</li>
+          </ul>
+          <div class="fh-card fragment">
+            <p class="fh-meta">Flags per interview · trailing 90 days</p>
+            <svg viewBox="0 0 440 160" width="100%" style="margin-top: 10px; display:block;" aria-hidden="true">
+              <line x1="20" y1="132" x2="420" y2="132" stroke="var(--color-border-strong)" stroke-width="1"/>
+              <g stroke="var(--color-ink-tertiary)" stroke-width="6" stroke-linecap="round">
+                <line x1="50"  y1="132" x2="50"  y2="100"/>
+                <line x1="95"  y1="132" x2="95"  y2="72"/>
+                <line x1="140" y1="132" x2="140" y2="114"/>
+                <line x1="185" y1="132" x2="185" y2="58"/>
+                <line x1="230" y1="132" x2="230" y2="92"/>
+                <line x1="275" y1="132" x2="275" y2="44"/>
+                <line x1="320" y1="132" x2="320" y2="104"/>
+                <line x1="365" y1="132" x2="365" y2="78"/>
+              </g>
+              <path d="M50 104 L95 90 L140 94 L185 80 L230 86 L275 72 L320 84 L365 78" fill="none" stroke="var(--color-ink-secondary)" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <circle cx="185" cy="58" r="4.5" fill="var(--color-accent)"/>
+              <circle cx="275" cy="44" r="4.5" fill="var(--color-accent)"/>
+            </svg>
+            <p class="fh-meta" style="margin-top: 8px; text-transform: none; letter-spacing: 0; font-family: var(--font-serif); font-style: italic; color: var(--color-ink-tertiary);">
+              Dashed = 7-interview rolling average · <span class="fh-accent">●</span> = a hire
+            </p>
+          </div>
+        </div>
+        <aside class="notes">
+          The Companion is one decision; the Mirror is the trend. This is where the real
+          value is — a manager who'd never notice a single flag can suddenly see that,
+          say, they raise "communication" concerns far more for one background than
+          another. The nudges are written in careful, non-accusatory language, generated
+          from the manager's own numbers. Still completely private, and visible only to them.
+        </aside>
+      </section>
+
+      <!-- ── 7 · Surface 3: HR Overview ───────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">Surface 3 — for HR, anonymised</p>
+        <h3>HR Overview — <span class="fh-muted" style="font-weight:400;">patterns worth a closer look</span></h3>
+        <div class="fh-cols-3" style="margin-top: 14px;">
+          <div class="fh-nudge fragment">
+            <div class="top">
+              <svg class="bulb" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+              <span class="tag">Organisation · representation</span>
+            </div>
+            <p class="sentence">Hires this period were <b>100% majority background</b> vs an applied pool of <b>30%</b>.</p>
+            <span class="link">See in Demographics ›</span>
+          </div>
+          <div class="fh-nudge fragment">
+            <div class="top">
+              <svg class="bulb" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+              <span class="tag">Organisation · language</span>
+            </div>
+            <p class="sentence">&ldquo;Shifting criteria&rdquo; is the most-flagged category — <b>2.1× the next</b>. Is the bar applied evenly?</p>
+            <span class="link">See in Flags ›</span>
+          </div>
+          <div class="fh-nudge fragment">
+            <div class="top">
+              <svg class="bulb" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+              <span class="tag">Organisation · calibration</span>
+            </div>
+            <p class="sentence">&ldquo;Energy / pace&rdquo; flags are dismissed <b>67% of the time</b> — 4 of 6. Do managers find it credible?</p>
+            <span class="link">See in Flags ›</span>
+          </div>
+        </div>
+        <p class="fragment fh-meta" style="margin-top: 44px; text-transform: none; letter-spacing: 0; font-family: var(--font-serif); font-style: italic; font-size: 20px; color: var(--color-ink-tertiary);">
+          Aggregated and anonymised — no individual manager is identifiable here.
+        </p>
+        <aside class="notes">
+          Same engine, org lens, fully anonymised. These three cards are real output from
+          the seeded data. First: hires skewed to the majority background versus who
+          applied — a representation signal. Second: one flag category dominates, so the
+          bar may be moving between candidates. Third — and this is the HR-only insight —
+          managers dismiss "energy/pace" flags two-thirds of the time, which tells HR
+          either the model is noisy there or the language is being systematically waved
+          off. Crucially: HR sees the pattern, never the person.
+        </aside>
+      </section>
+
+      <!-- ── 8 · Hybrid engine (skippable) ────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">How it works</p>
+        <h3>A hybrid engine: rules <span class="fh-accent">+</span> LLM</h3>
+        <p class="fh-body" style="margin: 4px 0 0;">A fast rulebook for the obvious cases; an AI for the judgment calls — each cross-checking the other.</p>
+        <div class="fh-arch fragment" style="margin: 18px 0;">
+          <div class="fh-node"><div class="n">Transcript</div><div class="s">debrief</div></div>
+          <div class="fh-arrow">→</div>
+          <div class="fh-node"><div class="n">Rules</div><div class="s">deterministic</div></div>
+          <div class="fh-node" style="margin-left:-1px;"><div class="n">LLM</div><div class="s">gpt-4o</div></div>
+          <div class="fh-arrow">→</div>
+          <div class="fh-node"><div class="n">Merge + dedupe</div><div class="s">highest confidence wins</div></div>
+          <div class="fh-arrow">→</div>
+          <div class="fh-node"><div class="n">Flags</div><div class="s">confidence-scored</div></div>
+        </div>
+        <ul class="fh-list fragment">
+          <li><strong>Rules</strong> are explainable, free and always on. <strong>The LLM</strong> catches nuance the rules miss.</li>
+          <li>Run <strong>both and merge</strong> — not one or the other. If the LLM is unavailable, it degrades to rules-only, never to nothing.</li>
+          <li><strong>Mode-aware:</strong> a different rule set and prompt for hiring vs promotion.</li>
+        </ul>
+        <aside class="notes">
+          I didn't want to bet the whole thing on an LLM — it's non-deterministic and can
+          hallucinate — but pure rules miss anything they weren't written for. So I run
+          both on every transcript and merge the results, with the higher-confidence flag
+          winning on overlaps. The rules give a guaranteed floor and full explainability;
+          the LLM adds nuance. And if OpenAI is down, the run quietly falls back to rules-
+          only rather than failing.
+        </aside>
+      </section>
+
+      <!-- ── 9 · Crown jewel: privacy by construction ─────────────────── -->
+      <section>
+        <p class="fh-kicker">Why the trust contract holds</p>
+        <h2>Privacy by construction.</h2>
+        <pre class="fh-code fragment"><span class="kw">create function</span> <span class="em">hr_flag_summary</span>()
+  <span class="kw">returns table</span> (flag_type text, count int, dismissed int)  <span class="cmt">-- no manager_id. no excerpt.</span>
+  <span class="kw">security definer</span>                                       <span class="cmt">-- runs as owner; org taken from the caller's identity</span></pre>
+        <ul class="fh-list fragment" style="margin-top: 18px;">
+          <li>HR's data has <strong>no column that could leak</strong> an individual — there's no <span style="font-family:var(--font-mono);font-size:0.85em;">manager_id</span> or excerpt in the return type at all.</li>
+          <li>Exposure isn't <em>filtered out</em> — it's <strong>structurally unrepresentable</strong>.</li>
+          <li>Every manager query is scoped by Postgres <strong>row-level security</strong> across 11 tables; <strong>adversarial cross-tenant tests</strong> prove one manager can't read another's rows.</li>
+        </ul>
+        <p class="fragment" style="margin-top: 16px; font-family: var(--font-serif); font-style: italic; font-size: 20px; color: var(--color-ink-tertiary);">
+          In plain terms: HR&rsquo;s report is printed on a form with <span class="fh-accent">no space to write a name</span> — so a name can never appear, even by accident.
+        </p>
+        <aside class="notes">
+          This is the slide I'm proudest of. Naive approach: give HR a broad read and
+          filter columns in the API — but one wrong query leaks a name. Instead, HR reads
+          through a database function whose return type only has aggregate columns. There
+          is literally no field in the result that identifies a manager or shows a quote —
+          so it can't leak, even if my API code had a bug. And the manager side is locked
+          down by Postgres row-level security, which I verify with tests that literally
+          try to read across tenants and assert they get nothing. Privacy is a property of
+          the schema, not a promise in my code.
+        </aside>
+      </section>
+
+      <!-- ── 10 · Rigor: evaluation (skippable) ───────────────────────── -->
+      <section>
+        <p class="fh-kicker">Checking my own work</p>
+        <h3>Is the detector any good?</h3>
+        <div class="fh-cols-3 fragment" style="margin-top: 14px;">
+          <div class="fh-card">
+            <p style="font-family:var(--font-serif); font-size:24px; color:var(--color-ink);">Precision</p>
+            <p class="fh-body" style="font-size:18px; margin:8px 0 0;">Of the flags raised, how many were real?</p>
+          </div>
+          <div class="fh-card">
+            <p style="font-family:var(--font-serif); font-size:24px; color:var(--color-ink);">Recall</p>
+            <p class="fh-body" style="font-size:18px; margin:8px 0 0;">Of the real bias, how much did we catch?</p>
+          </div>
+          <div class="fh-card">
+            <p style="font-family:var(--font-serif); font-size:24px; color:var(--color-ink);">F1</p>
+            <p class="fh-body" style="font-size:18px; margin:8px 0 0;">The balance between the two.</p>
+          </div>
+        </div>
+        <ul class="fh-list fragment" style="margin-top: 18px;">
+          <li>Scored <strong>per flag type</strong> against a labelled ground-truth set — run any time with <span style="font-family:var(--font-mono);font-size:0.85em;">npm run eval</span>.</li>
+          <li>Plus a <strong>fairness breakdown</strong> by race &amp; gender, and honest, documented limitations.</li>
+        </ul>
+        <aside class="notes">
+          A bias tool that is itself biased or noisy is worse than nothing, so I built an
+          eval harness. It re-runs the engine against a labelled set and reports precision,
+          recall and F1 per flag type — no single vanity accuracy number. It also breaks
+          the results down by demographic so I can check the detector isn't itself skewed,
+          and I documented where it's weak. If you want live numbers, run `npm run eval`.
+        </aside>
+      </section>
+
+      <!-- ── 11 · Thought process ─────────────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">How I framed it</p>
+        <h2>Four tensions any honest solution must face.</h2>
+        <ul class="fh-list" style="margin-top: 6px;">
+          <li class="fragment"><strong>Bias is invisible in the moment.</strong> Ask &ldquo;were you fair?&rdquo; and you'll always hear yes — so the tool <em>surfaces what you couldn't see</em>, it doesn't interrogate.</li>
+          <li class="fragment"><strong>Bias lives in patterns, not single calls.</strong> Any one debrief looks reasonable — so the Mirror <em>aggregates across all your decisions</em>.</li>
+          <li class="fragment"><strong>The same data that helps can surveil.</strong> Feel watched and you game it or quit — so isolation is <em>enforced in the database</em>; HR sees only anonymised aggregates.</li>
+          <li class="fragment"><strong>&ldquo;Biased language&rdquo; is subjective.</strong> Over-flag and you're ignored; under-flag and you catch nothing — so calibration is <em>conservative by design</em>.</li>
+        </ul>
+        <p class="fragment" style="margin-top: 18px; font-family: var(--font-serif); font-size: 24px; color: var(--color-accent);">
+          One principle underneath all four: augment the manager&rsquo;s judgement — never replace it.
+        </p>
+        <aside class="notes">
+          This is the analytical spine — the four tensions I laid out in my original
+          proposal, and each one drove a concrete engineering choice you've just seen.
+          Invisible-in-the-moment is why the product reflects rather than asks. Patterns-
+          not-single-calls is why the Mirror exists. The-data-that-helps-can-surveil is why
+          isolation lives in Postgres, not my API code. And subjective-language is why the
+          detector is tuned to stay quiet rather than cry wolf. The one line under all of
+          it: augment judgement, never replace it — the tool never scores or auto-rejects
+          anyone.
+        </aside>
+      </section>
+
+      <!-- ── 12 · Architecture & stack (skippable) ────────────────────── -->
+      <section>
+        <p class="fh-kicker">Under the hood</p>
+        <h3>Architecture</h3>
+        <div class="fh-arch fragment" style="margin: 20px 0 8px;">
+          <div class="fh-node"><div class="n">React SPA</div><div class="s">Vercel</div></div>
+          <div class="fh-arrow">→</div>
+          <div class="fh-node"><div class="n">Express API</div><div class="s">Render</div></div>
+          <div class="fh-arrow">→</div>
+          <div class="fh-node"><div class="n">Postgres + RLS</div><div class="s">Supabase</div></div>
+        </div>
+        <p class="fragment fh-meta" style="text-transform:none; letter-spacing:0; font-family:var(--font-serif); font-style:italic; font-size:19px; color:var(--color-ink-tertiary); margin: 4px 0 20px;">
+          Auth via Clerk · analysis runs async through the rules + LLM engine → OpenAI gpt-4o
+        </p>
+        <div class="fh-chips fragment">
+          <span class="fh-chip">React</span><span class="fh-chip">Vite</span><span class="fh-chip">TypeScript</span>
+          <span class="fh-chip">TanStack Query</span><span class="fh-chip">Express</span><span class="fh-chip">Prisma</span>
+          <span class="fh-chip">PostgreSQL · RLS</span><span class="fh-chip">Clerk</span><span class="fh-chip">OpenAI gpt-4o</span>
+          <span class="fh-chip">Zod</span><span class="fh-chip">Vercel · Render · Supabase</span>
+        </div>
+        <p class="fragment fh-meta" style="margin-top: 22px;">Monorepo · shared Zod types · 350+ automated tests incl. adversarial isolation</p>
+        <aside class="notes">
+          Quick tour for the technical folks: a React SPA on Vercel, an Express API on
+          Render, Postgres with row-level security on Supabase. Clerk handles auth.
+          Analysis is asynchronous — you post a debrief, it returns immediately, and the
+          engine works in the background. Shared Zod types keep the front end and API in
+          lockstep, and there are 350-plus tests including the adversarial isolation ones I
+          mentioned.
+        </aside>
+      </section>
+
+      <!-- ── 13 · What's next ─────────────────────────────────────────── -->
+      <section>
+        <p class="fh-kicker">Phase 2</p>
+        <h2>Where it goes next.</h2>
+        <ul class="fh-list" style="margin-top: 6px;">
+          <li class="fragment"><strong>HRIS integration</strong> — pull candidates &amp; decisions from the systems teams already use.</li>
+          <li class="fragment"><strong>Live transcription</strong> — flag language during the debrief, not after.</li>
+          <li class="fragment"><strong>Nudge thresholds tuned on real signal</strong> — today's are deliberately cautious placeholders.</li>
+          <li class="fragment"><strong>Fine-tuning</strong> on labelled debriefs to lift recall on the subtler categories.</li>
+        </ul>
+        <aside class="notes">
+          Where I'd take it: connect to the HR systems so it's zero-effort to adopt; move
+          from post-hoc to live so the nudge lands in the moment; and tune the nudge
+          thresholds on real organisational data — right now they're intentionally cautious
+          placeholders. Longer term, fine-tune the model on labelled debriefs to catch the
+          subtler patterns.
+        </aside>
+      </section>
+
+      <!-- ── 14 · Close ───────────────────────────────────────────────── -->
+      <section class="slide-title">
+        <p class="wordmark" style="font-size: 60px;">Bias you can see<br/>is bias you can change.</p>
+        <p class="tagline" style="margin-top: 26px;">A private mirror for managers. An anonymised lens for HR. <b>The boundary between them enforced by the database itself.</b></p>
+        <p class="byline"><span class="who">Ashmita Haldar</span> &nbsp;·&nbsp; FairHire &nbsp;·&nbsp; Thank you</p>
+        <p class="live"><span class="dot"></span>Try it live at <a href="https://fairhire-azure.vercel.app">fairhire-azure.vercel.app</a></p>
+        <aside class="notes">
+          Close on the thesis: bias you can see is bias you can change. FairHire makes it
+          visible to the one person who can act on it, privately, and gives HR the org
+          picture without ever exposing an individual — with that line enforced in the
+          database, not just promised. Happy to take questions, or dive into the RLS, the
+          engine, or the eval.
+        </aside>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="fh-footer">FairHire</div>
+
+  <script src="vendor/reveal/reveal.js"></script>
+  <script src="vendor/reveal/notes.js"></script>
+  <script>
+    // Optional self-running mode: open index.html?autoplay (or ?autoplay=5000
+    // to set ms per step). The deck then advances through the fragments and
+    // slides on a timer and loops — for a booth, an unattended screen, or to
+    // screen-record a video. Without the param it behaves normally (manual).
+    const params = new URLSearchParams(location.search);
+    const autoplay = params.has('autoplay');
+    const autoMs = parseInt(params.get('autoplay'), 10) || 5000;
+
+    // reveal.js 6 canonical instance API.
+    const deck = new Reveal({
+      width: 1280,
+      height: 720,
+      margin: 0.06,
+      minScale: 0.2,
+      maxScale: 2.0,
+      center: true,
+      hash: true,
+      controls: true,
+      progress: true,
+      slideNumber: 'c/t',
+      transition: 'fade',
+      transitionSpeed: 'default',
+      loop: autoplay,
+      autoSlide: autoplay ? autoMs : 0,
+      plugins: [ RevealNotes ],
+    });
+    // Hide the running footer wordmark on the title & closing slides.
+    function toggleFooter() {
+      const i = deck.getIndices().h;
+      const last = deck.getTotalSlides() - 1;
+      document.body.classList.toggle('is-title', i === 0 || i === last);
+    }
+    deck.on('ready', toggleFooter);
+    deck.on('slidechanged', toggleFooter);
+    deck.initialize();
+  </script>
+</body>
+</html>
