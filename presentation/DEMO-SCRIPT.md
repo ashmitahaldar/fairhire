@@ -122,6 +122,55 @@ Times are approximate. Narration lines are a starting point — say them in your
 
 ---
 
+## Word-for-word voiceover
+
+Read this straight through while you record. It's ~2.7 min at a normal pace (~145 words
+a minute) — slow down and pause on the bracketed cues so the on-screen animation has room
+to breathe. The `[cues]` are for you; don't read them aloud. Trim any sentence that runs
+long against your footage.
+
+> **[Shot 1 — open a debrief]**
+> This is FairHire. After an interview, a manager drops their debrief notes in here, and
+> the tool reads the transcript for the kind of language that quietly shifts the bar — the
+> phrases that sound reasonable in the moment but don't hold up across candidates.
+>
+> **[Shot 2 — hit Replay; flags stream in]**
+> When the analysis runs, the flags surface one at a time, and each one points to the exact
+> phrase it picked up on. This is only ever visible to the manager who wrote the notes —
+> nobody else in the company sees it.
+>
+> **[Shot 3 — expand a flag, dismiss one, set the decision]**
+> If I open one up, I get the quote, a plain explanation of why it was flagged, and a fairer
+> way to say the same thing — so it's not marking you wrong, it's offering you a rewrite. And
+> if I think it's got it wrong, I dismiss it and give a reason. That disagreement isn't
+> wasted; it feeds back in later. Then I record the actual decision.
+>
+> **[Shot 4 — Pattern Mirror]**
+> That was one interview. This is the same manager across all of theirs. A single flag is
+> easy to shrug off, but over time you can see which patterns keep coming back — and whether
+> they land harder on some groups than others. It's a mirror, and it stays completely
+> private to them.
+>
+> **[Shot 5 — candidate dialog + privacy line]**
+> Even the candidate view respects that line. You can see that other managers have
+> interviewed this person too, but you never see what they wrote.
+>
+> **[Shot 6 — switch to the HR account; the nudges strip]**
+> Now I'll switch to an HR login. HR gets a completely different view — the whole
+> organisation, fully anonymised. No manager is named anywhere on this screen. And three
+> things stand out right away. Everyone hired this period came from the majority background,
+> even though they were only thirty percent of applicants. One kind of concern — shifting the
+> criteria mid-process — is coming up more than twice as often as anything else. And a third
+> pattern, energy-and-pace language, gets waved off by managers two-thirds of the time, which
+> tells HR that signal might not be landing. HR sees the pattern; it never sees the person.
+>
+> **[Shot 7 — close]**
+> So that's FairHire — a private mirror for the manager, an anonymised view for HR, and the
+> wall between them built into the database itself, not just written into a policy. Bias is
+> hard to fix, but it's a lot easier to change once you can actually see it.
+
+---
+
 ## Tips & fallbacks
 - **The Replay button** is your friend — it re-triggers the flag-reveal animation as many
   takes as you need without re-analysing.
