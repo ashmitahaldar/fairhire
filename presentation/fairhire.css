@@ -381,6 +381,35 @@
   color: var(--color-ink-tertiary);
 }
 .slide-title .byline .who { color: var(--color-ink); }
+.slide-title .live {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  color: var(--color-accent);
+  margin-top: 16px;
+}
+.slide-title .live a {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-accent-soft);
+}
+.slide-title .live .dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  margin-right: 9px;
+  vertical-align: middle;
+  animation: fh-pulse 2.4s var(--ease-quiet) infinite;
+}
+@keyframes fh-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--color-accent-soft); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-title .live .dot { animation: none; }
+}
 
 /* ── Progress bar + controls in oxblood ───────────────────────────────── */
 .reveal .progress { color: var(--color-accent); height: 3px; }
