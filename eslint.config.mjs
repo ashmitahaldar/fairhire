@@ -34,6 +34,6 @@ export default [
     },
   },
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.vercel/**'],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/.vercel/**', 'presentation/vendor/**'],
   },
 ];
