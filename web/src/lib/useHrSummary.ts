@@ -4,6 +4,7 @@ import type {
   HrDecisionsResponse,
   HrDemographicsResponse,
   HrFlagsResponse,
+  HrNudgesResponse,
   MirrorPeriod,
 } from '@fairhire/shared';
 import { apiFetch } from './api';
@@ -45,6 +46,18 @@ export function useHrDemographics(period: MirrorPeriod) {
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
       return apiFetch<HrDemographicsResponse>(`/hr/demographics?period=${period}`, token);
+    },
+  });
+}
+
+export function useHrNudges(period: MirrorPeriod) {
+  const { getToken } = useAuth();
+  return useQuery<HrNudgesResponse>({
+    queryKey: ['hr', 'nudges', period],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      return apiFetch<HrNudgesResponse>(`/hr/nudges?period=${period}`, token);
     },
   });
 }

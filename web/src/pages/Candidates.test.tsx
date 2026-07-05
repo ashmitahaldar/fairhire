@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@clerk/clerk-react', () => ({
@@ -7,7 +8,9 @@ vi.mock('@clerk/clerk-react', () => ({
 }));
 
 import Candidates from './Candidates';
-import type { CandidateListItem } from '../lib/candidatesApi';
+import type { CandidateFlag, CandidateListItem } from '../lib/candidatesApi';
+import { ManagerContext, type ManagerProfile } from '../lib/ManagerContext';
+import type { Role } from '@fairhire/shared';
 
 function row(
   overrides: Partial<CandidateListItem> & Pick<CandidateListItem, 'id' | 'name'>,
@@ -25,20 +28,46 @@ function row(
   };
 }
 
-function renderPage() {
+function renderPage(role: Role = 'manager') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const profile: ManagerProfile = {
+    id: 'm-self',
+    name: 'Test Manager',
+    email: 'test@example.com',
+    role,
+    orgId: 'org-1',
+    deptId: 'dept-1',
+  };
   return render(
     <QueryClientProvider client={qc}>
-      <Candidates />
+      <ManagerContext.Provider value={profile}>
+        <MemoryRouter>
+          <Candidates />
+        </MemoryRouter>
+      </ManagerContext.Provider>
     </QueryClientProvider>
   );
 }
 
 let originalFetch: typeof globalThis.fetch;
 
-function mockCandidates(list: CandidateListItem[]) {
+// Mocks GET /candidates and GET /candidates/:id/flags (the detail dialog).
+// flagsById defaults each candidate's own-flags to an empty list.
+function mockCandidates(
+  list: CandidateListItem[],
+  flagsById: Record<string, CandidateFlag[]> = {},
+) {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    const flagsMatch = url.match(/\/candidates\/([^/]+)\/flags/);
+    if (flagsMatch) {
+      const id = flagsMatch[1]!;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => flagsById[id] ?? [],
+      } as unknown as Response;
+    }
     if (url.endsWith('/candidates')) {
       return { ok: true, status: 200, json: async () => list } as unknown as Response;
     }
@@ -92,19 +121,39 @@ describe('Candidates page', () => {
     expect(screen.getByText('3')).toBeTruthy();
   });
 
-  it('shows the org-wide flag count, with the by-you split only when others contributed', async () => {
-    mockCandidates([
-      row({ id: 'c1', name: 'Ahmad Faris', flagCount: { total: 12, own: 3 } }),
-      row({ id: 'c2', name: 'Siti Nurhaliza', flagCount: { total: 4, own: 4 } }),
-    ]);
+  it('opens the detail dialog on name click, showing the org-wide split and your own flags', async () => {
+    mockCandidates(
+      [row({ id: 'c1', name: 'Ahmad Faris', flagCount: { total: 12, own: 2 } })],
+      {
+        c1: [
+          {
+            id: 'f1',
+            flagType: 'asymmetric_concern',
+            excerpt: 'accent may be a concern',
+            reasoning: 'A concern comparable candidates did not get.',
+            confidenceScore: 0.9,
+            dismissed: false,
+            meetingId: 'm1',
+            meetingTitle: 'Debrief — Ahmad',
+            meetingDate: '2026-01-15T00:00:00Z',
+            meetingType: 'hiring',
+          },
+        ],
+      },
+    );
 
     renderPage();
 
-    await screen.findByText('Ahmad Faris');
-    // c1: 9 of 12 flags came from other managers — surface the split.
-    expect(screen.getByText(/3 by you/)).toBeTruthy();
-    // c2: every flag is the caller's own — show just the total, no split.
-    expect(screen.getByText('4')).toBeTruthy();
+    fireEvent.click(await screen.findByText('Ahmad Faris'));
+
+    const dialog = await screen.findByRole('dialog');
+    // Org-wide count keeps the cross-manager framing (12 total, 2 by you).
+    expect(within(dialog).getByText(/including other managers/)).toBeTruthy();
+    // The caller's OWN flag content is shown in full — type label + excerpt.
+    expect(await within(dialog).findByText('Asymmetric concern')).toBeTruthy();
+    expect(within(dialog).getByText(/accent may be a concern/)).toBeTruthy();
+    // Link into the source debrief.
+    expect(within(dialog).getByRole('link', { name: /Open debrief/ })).toBeTruthy();
   });
 
   it('labels a promotion outcome as "Promoted" (not blank) using the decision meeting mode', async () => {
@@ -137,6 +186,19 @@ describe('Candidates page', () => {
     const del = screen.getByRole('button', { name: /^Delete$/ });
     expect((edit as HTMLButtonElement).disabled).toBe(true);
     expect((del as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('replaces the row actions with "View only" for HR admins', async () => {
+    // HR never interviews, so canModify is false on every row. Rather than show
+    // uniformly greyed Edit/Delete (which reads as broken), HR sees "View only".
+    mockCandidates([row({ id: 'c1', name: 'Hannah Lim', canModify: false })]);
+
+    renderPage('hr_admin');
+
+    await screen.findByText('Hannah Lim');
+    expect(screen.getByText('View only')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Edit$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Delete$/ })).toBeNull();
   });
 
   it('filters the list by search input', async () => {

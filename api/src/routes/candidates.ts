@@ -126,6 +126,50 @@ candidatesRouter.get('/', async (req, res) => {
   res.json(candidates.map((row) => toWireCandidate(row, countById.get(row.id))));
 });
 
+// ── GET /candidates/:id/flags ─────────────────────────────────────────────
+// The caller's OWN flags for one candidate, with full content (type, excerpt,
+// reasoning, confidence). This is deliberately different from the org-wide
+// `flagCount` on the list: that count crosses the manager boundary as an
+// aggregate, whereas this returns flag *content* — so it is scoped strictly to
+// the caller's own debriefs. RLS already limits `flags` SELECT to the caller's
+// own meetings (managers_select_own_flags); the meeting→candidate filter
+// narrows to this candidate. A candidate the caller hasn't interviewed simply
+// yields an empty list — never another manager's flag content. No ownership
+// middleware needed: the empty-list outcome *is* the correct boundary.
+candidatesRouter.get('/:id/flags', async (req, res) => {
+  const flags = await withManagerContext(req.manager.id, (tx) =>
+    tx.flag.findMany({
+      where: { meeting: { candidates: { some: { candidateId: req.params.id } } } },
+      orderBy: [{ meeting: { date: 'desc' } }, { confidenceScore: 'desc' }],
+      select: {
+        id: true,
+        flagType: true,
+        excerpt: true,
+        reasoning: true,
+        confidenceScore: true,
+        dismissed: true,
+        meetingId: true,
+        meeting: { select: { title: true, date: true, meetingType: true } },
+      },
+    }),
+  );
+
+  res.json(
+    flags.map((f) => ({
+      id: f.id,
+      flagType: f.flagType,
+      excerpt: f.excerpt,
+      reasoning: f.reasoning,
+      confidenceScore: f.confidenceScore,
+      dismissed: f.dismissed,
+      meetingId: f.meetingId,
+      meetingTitle: f.meeting.title,
+      meetingDate: f.meeting.date,
+      meetingType: f.meeting.meetingType,
+    })),
+  );
+});
+
 // ── POST /candidates ──────────────────────────────────────────────────────
 // Create a candidate scoped to the manager's org. orgId comes from the
 // authenticated manager — never from the request body — so a forged orgId

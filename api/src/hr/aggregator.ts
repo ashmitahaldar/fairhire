@@ -6,11 +6,13 @@ import {
   type HrDecisionsResponse,
   type HrDemographicsResponse,
   type HrFlagsResponse,
+  type HrNudgesResponse,
   type MirrorPeriod,
   type RaceSegmentKey,
 } from '@fairhire/shared';
 import type { TransactionClient } from '../lib/prisma';
 import { getPeriodWindows } from '../mirror/aggregator';
+import { buildHrNudges } from './nudges';
 
 // Pure aggregation service for the HR org-level view. Distinct from
 // mirror/aggregator.ts — that one is manager-scoped and returns named
@@ -113,4 +115,19 @@ export async function aggregateHrDemographics(
     .sort((a, b) => (order.get(a.race) ?? 99) - (order.get(b.race) ?? 99));
 
   return { period, byRace };
+}
+
+// Org-level reflections. No new SQL: composes the flag + demographic aggregates
+// above and runs the pure rule engine (hr/nudges.ts) over them. Sequential by
+// design — the interactive-transaction client is a single connection. Reuses
+// the same `now` across both reads so the period windows align.
+export async function aggregateHrNudges(
+  tx: TransactionClient,
+  period: MirrorPeriod,
+  now: Date = new Date(),
+): Promise<HrNudgesResponse> {
+  const flags = await aggregateHrFlags(tx, period, now);
+  const demographics = await aggregateHrDemographics(tx, period, now);
+  const nudges = buildHrNudges({ flags, demographics });
+  return { period, nudges };
 }

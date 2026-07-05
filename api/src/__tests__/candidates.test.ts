@@ -15,6 +15,10 @@ jest.mock('../lib/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    // GET /candidates/:id/flags reads the caller's own flags for a candidate.
+    flag: {
+      findMany: jest.fn(),
+    },
     // GET /candidates also reads candidate_flag_counts() via $queryRaw.
     $queryRaw: jest.fn(),
   },
@@ -36,6 +40,7 @@ const mockSystemMeetingCandidateFindFirst = systemPrisma.meetingCandidate
 const mockCandidateFindMany = prisma.candidate.findMany as jest.Mock;
 const mockCandidateCreate = prisma.candidate.create as jest.Mock;
 const mockCandidateUpdate = prisma.candidate.update as jest.Mock;
+const mockFlagFindMany = prisma.flag.findMany as jest.Mock;
 const mockQueryRaw = prisma.$queryRaw as jest.Mock;
 const mockWithManagerContext = withManagerContext as jest.Mock;
 
@@ -203,6 +208,74 @@ describe('GET /candidates', () => {
 
     expect(res.status).toBe(401);
     expect(mockCandidateFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /candidates/:id/flags', () => {
+  const candidateId = 'cccccccc-1111-2222-3333-444444444444';
+
+  it('returns the caller\'s own flags for the candidate with meeting context', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    mockFlagFindMany.mockResolvedValue([
+      {
+        id: 'f1',
+        flagType: 'asymmetric_concern',
+        excerpt: 'accent may be a concern',
+        reasoning: 'A concern comparable candidates did not get.',
+        confidenceScore: 0.9,
+        dismissed: false,
+        meetingId: 'm1',
+        meeting: { title: 'Debrief — Ravi', date: new Date('2026-01-15T00:00:00Z'), meetingType: 'hiring' },
+      },
+    ]);
+
+    const res = await request(app).get(`/candidates/${candidateId}/flags`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      {
+        id: 'f1',
+        flagType: 'asymmetric_concern',
+        excerpt: 'accent may be a concern',
+        reasoning: 'A concern comparable candidates did not get.',
+        confidenceScore: 0.9,
+        dismissed: false,
+        meetingId: 'm1',
+        meetingTitle: 'Debrief — Ravi',
+        meetingDate: '2026-01-15T00:00:00.000Z',
+        meetingType: 'hiring',
+      },
+    ]);
+    // Scoped to the candidate through the meeting join; RLS (own-meetings)
+    // does the ownership scoping, so no managerId filter is needed here.
+    expect(mockWithManagerContext).toHaveBeenCalledWith(managerA.id, expect.any(Function));
+    expect(mockFlagFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { meeting: { candidates: { some: { candidateId } } } },
+      }),
+    );
+  });
+
+  it('returns an empty list for a candidate the caller has not interviewed', async () => {
+    mockGetAuth.mockReturnValue({ userId: managerA.clerkUserId });
+    mockSystemManagerFindUnique.mockResolvedValue(managerA);
+    // RLS yields no own-meeting flags for this candidate.
+    mockFlagFindMany.mockResolvedValue([]);
+
+    const res = await request(app).get(`/candidates/${candidateId}/flags`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetAuth.mockReturnValue({ userId: null });
+
+    const res = await request(app).get(`/candidates/${candidateId}/flags`);
+
+    expect(res.status).toBe(401);
+    expect(mockFlagFindMany).not.toHaveBeenCalled();
   });
 });
 

@@ -7,6 +7,7 @@ import {
   aggregateHrDecisions,
   aggregateHrDemographics,
   aggregateHrFlags,
+  aggregateHrNudges,
 } from '../hr/aggregator';
 
 export const hrRouter = Router();
@@ -62,6 +63,21 @@ hrRouter.get('/demographics', async (req, res) => {
   }
   const data = await withManagerContext(req.manager.id, (tx) =>
     aggregateHrDemographics(tx, parsed.data.period),
+  );
+  res.json(data);
+});
+
+// Org-level reflections derived from the aggregates above (no new SQL). Same
+// role gate + period scoping; the response carries only templated sentences
+// built from org counts — no manager identity, candidate, or excerpt.
+hrRouter.get('/nudges', async (req, res) => {
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const data = await withManagerContext(req.manager.id, (tx) =>
+    aggregateHrNudges(tx, parsed.data.period),
   );
   res.json(data);
 });
