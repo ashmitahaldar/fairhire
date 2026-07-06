@@ -21,3 +21,6 @@ services:
         sync: false   # set in Render dashboard — generate with: openssl rand -hex 32
       - key: WEB_URL
         sync: false   # set in Render dashboard — your Vercel frontend URL
+      - key: OPENAI_API_KEY
+        sync: false   # set in Render dashboard — without it, analysis silently degrades to rules-only
+      # OPENAI_MODEL is optional — omit to use the default (gpt-4o-2024-08-06).

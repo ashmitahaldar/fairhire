@@ -13,9 +13,21 @@ type CandidateSpec = {
   demographics: DemographicsSpec;
 };
 
-// Use DIRECT_URL (superuser) so RLS does not block seed writes
+// Use DIRECT_URL (superuser) so RLS does not block seed writes.
+//
+// DIRECT_URL points at Supabase's session-mode pooler (port 5432), which caps
+// total clients at 15 — shared with any running dev:api server. Prisma's default
+// pool is `cpus × 2 + 1` (~17 here), so the parallel Promise.all / createMany
+// bursts below can open enough connections at once to trip EMAXCONNSESSION on
+// their own. Pin this client's pool to 1: the bursts just queue over a single
+// connection (a few seconds slower, immune to the pooler cap).
+const seedUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '';
+const seedUrlWithLimit = seedUrl.includes('?')
+  ? `${seedUrl}&connection_limit=1`
+  : `${seedUrl}?connection_limit=1`;
+
 const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
+  datasources: { db: { url: seedUrlWithLimit } },
 });
 
 async function main() {
@@ -951,37 +963,30 @@ async function main() {
 
   console.log('[seed] Creating analysis runs...');
 
+  // Every meeting gets its own completed run so the Flag Review screen always
+  // resolves to a terminal state. A meeting with no AnalysisRun (or a stuck
+  // 'pending' one) is read by the client as status 'pending' — dataAdapter's
+  // `run?.status ?? 'pending'` — which spins the "Analysing…" poller forever
+  // and never reveals the flags already in the DB. So: one completed run per
+  // meeting, anchored to that meeting's date. Marcus's m12 has zero flags → it
+  // shows the clean "No flags raised" empty state; the rest reveal their flags.
+  const runDurationsMs: [{ id: string; date: Date }, number][] = [
+    [m1, 47_000], [m2, 39_000], [m3, 44_000], [m4, 51_000],
+    [m5, 53_000], [m6, 42_000], [m7, 38_000], [m8, 49_000],
+    [m9, 55_000], [m10, 46_000], [m11, 40_000], [m12, 41_000],
+  ];
+
   await prisma.analysisRun.createMany({
-    data: [
-      {
+    data: runDurationsMs.map(
+      ([m, durationMs]): Prisma.AnalysisRunCreateManyInput => ({
         orgId: org.id,
-        meetingId: m1.id,
+        meetingId: m.id,
         status: 'completed',
         modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: daysAgo(82),
-        completedAt: new Date(daysAgo(82).getTime() + 47_000),
-      },
-      {
-        orgId: org.id,
-        meetingId: m5.id,
-        status: 'completed',
-        modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: daysAgo(78),
-        completedAt: new Date(daysAgo(78).getTime() + 53_000),
-      },
-      // Marcus's clean debrief — completed with no flags. (Previously seeded
-      // as a permanently 'pending' run, which the 1.5s poller spun on forever;
-      // completed + zero flags now demonstrates the clean "No flags raised"
-      // empty state instead.)
-      {
-        orgId: org.id,
-        meetingId: m12.id,
-        status: 'completed',
-        modelVersion: 'claude-3-5-sonnet-20241022',
-        startedAt: daysAgo(10),
-        completedAt: new Date(daysAgo(10).getTime() + 41_000),
-      },
-    ],
+        startedAt: m.date,
+        completedAt: new Date(m.date.getTime() + durationMs),
+      }),
+    ),
   });
 
   // ─── Summary ─────────────────────────────────────────────────────────────────
