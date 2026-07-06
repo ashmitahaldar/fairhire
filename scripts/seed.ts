@@ -87,7 +87,10 @@ async function main() {
     }),
     prisma.manager.create({
       data: {
-        clerkUserId: 'seed_user_priya_nair',
+        // Doubles as the public demo manager (landing page "Explore the demo →
+        // hiring manager"). Priya's asymmetric_concern pattern gives visitors a
+        // real Decision Companion + Pattern Mirror to explore.
+        clerkUserId: 'user_3G7mxVcEJwU6zczguUzm8NlZPux',
         orgId: org.id,
         deptId: dept.id,
         role: 'manager',
@@ -125,6 +128,22 @@ async function main() {
       role: 'hr_admin',
       name: 'Sarah Wong',
       email: 'sarah.wong@meridian-capital.sg',
+    },
+  });
+
+  // Public demo HR account — powers the landing page's "Explore the demo →
+  // Enter as HR". A second hr_admin in the same org with no meetings/flags/
+  // decisions of its own, so it adds nothing to the org aggregates; it simply
+  // sees the same anonymised HR Overview. Dedicated Clerk account, separate
+  // from Sarah so a visitor never lands in the presenter's HR session.
+  await prisma.manager.create({
+    data: {
+      clerkUserId: 'user_3G7mxVxKa8jRrf8erJ1SUFU7xHJ',
+      orgId: org.id,
+      deptId: dept.id,
+      role: 'hr_admin',
+      name: 'Demo — HR Analytics',
+      email: 'demo.hr+clerk_test@example.com',
     },
   });
 

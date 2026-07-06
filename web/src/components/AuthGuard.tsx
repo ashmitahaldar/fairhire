@@ -1,9 +1,10 @@
-import { useAuth, useUser, SignIn } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import type { Role } from '@fairhire/shared';
 import { apiFetch, ApiError } from '../lib/api';
 import { ManagerContext, ManagerUpdateContext, type ManagerProfile } from '../lib/ManagerContext';
+import { LandingPage } from './LandingPage';
 import { RolePicker } from './RolePicker';
 
 // 'checking'  — looking up an existing Manager row (GET /auth/me)
@@ -106,12 +107,7 @@ export function AuthGuard() {
   // signed-out user — gating Loading on it ahead of the !isSignedIn check
   // would trap them on Loading forever.
   if (!isLoaded) return <LoadingScreen />;
-  if (!isSignedIn)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-        <SignIn />
-      </div>
-    );
+  if (!isSignedIn) return <LandingPage />;
   if (syncState === 'needsRole' || syncState === 'syncing') {
     return <RolePicker onChoose={handleChooseRole} submitting={syncState === 'syncing'} />;
   }
