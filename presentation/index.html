@@ -49,12 +49,12 @@
         </div>
         <aside class="notes">
           Where this started for me: I'd been reading about why interviewers tend to favour
-          candidates who remind them of themselves — even when they're actively trying not
-          to — and it stuck with me. What hooked me wasn't the fairness angle, it was the
+          candidates who remind them of themselves (next) — even when they're actively trying not
+          to — and it stuck with me. (next) What hooked me wasn't the fairness angle, it was the
           psychology: our brains run shortcuts below the level of intention, and good
           intentions don't reach them. So bias in hiring is rarely a slur — it's coded,
-          plausible language that shifts the bar. "Culture fit," "presence," "energy." Each
-          note passes review; the signal only shows up in aggregate, and nobody ever
+          plausible language that shifts the bar. (next) "Culture fit," "presence," "energy." Each
+          note passes review; the pattern only shows up in aggregate, and nobody ever
           reflects it back to the manager. That gap is the opportunity.
         </aside>
       </section>
@@ -71,11 +71,11 @@
         </div>
         <aside class="notes">
           This is how I re-read the brief. The brief asks how tech can help managers spot
-          bias; the more useful framing is "make invisible things visible without making
+          bias; (next) the more useful framing is "make invisible things visible without making
           the manager feel watched." A compliance tool that only relies on judgment gets routed
           around — people write blander notes and the bias just goes unrecorded, which is
-          worse. So I flipped it: the manager is the first and primary audience for their
-          own data. A mirror they choose to look into. That reframe drives every privacy
+          worse. (next) So I flipped it: the manager should be the first and primary audience for their
+          own data. (next) A mirror they choose to look into. That reframe drives every privacy
           decision that follows — the next slide.
         </aside>
       </section>
@@ -98,8 +98,8 @@
           Not a policy. <span class="fh-accent">Enforced at the database layer</span> — and proven by tests.
         </p>
         <aside class="notes">
-          This boundary is the trust contract. A manager never sees a colleague's
-          interviews. HR gets the org picture but can't drill into a person. The important
+          This boundary is the trust contract. (next) A manager never sees a colleague's
+          interviews. (next) HR gets the org picture but can't drill into a person. (next) The important
           part — and I'll show how — this isn't a promise in a privacy policy or an if-
           statement in my code that I could get wrong. It's enforced by Postgres itself,
           and I wrote adversarial tests that try to break it and confirm they can't.
@@ -129,8 +129,8 @@
           </div>
         </div>
         <aside class="notes">
-          This is where a manager lands right after an interview. The transcript is on the
-          left with the flagged phrases underlined; the cards on the right explain each one
+          This is where a manager lands right after an interview. (next) The transcript is on the
+          left with the flagged phrases underlined; (next) the cards on the right explain each one
           and suggest a fairer way to say it. Note it's not scolding — it gives you a
           rewrite. And if the tool is wrong, you dismiss it with a reason, which becomes a
           useful signal for HR later. On the live demo you'll see these stream in one by
@@ -191,9 +191,9 @@
           </div>
         </div>
         <aside class="notes">
-          The Companion is one decision; the Mirror is the trend. This is where the real
+          The Companion is one decision; the Mirror is the trend. (next) This is where the real
           value is — a manager who'd never notice a single flag can suddenly see that,
-          say, they raise "communication" concerns far more for one background than
+          say, (next) they raise "communication" concerns far more for one background than
           another. The nudges are written in careful, non-accusatory language, generated
           from the manager's own numbers. Still completely private, and visible only to them.
         </aside>
@@ -234,12 +234,12 @@
         </p>
         <aside class="notes">
           Same engine, org lens, fully anonymised. These three cards are real output from
-          the seeded data. First: hires skewed to the majority background versus who
-          applied — a representation signal. Second: one flag category dominates, so the
-          bar may be moving between candidates. Third — and this is the HR-only insight —
+          the seeded data. (next) First: hires skewed to the majority background versus who
+          applied — a representation signal. (next) Second: one flag category dominates, so the
+          bar may be moving between candidates. (next) Third — and this is the HR-only insight —
           managers dismiss "energy/pace" flags two-thirds of the time, which tells HR
           either the model is noisy there or the language is being systematically waved
-          off. Crucially: HR sees the pattern, never the person.
+          off. (next) Crucially: HR sees the pattern, never the person.
         </aside>
       </section>
 
@@ -265,9 +265,9 @@
         </ul>
         <aside class="notes">
           I didn't want to bet the whole thing on an LLM — it's non-deterministic and can
-          hallucinate — but pure rules miss anything they weren't written for. So I run
+          hallucinate — but pure rules miss anything they weren't written for. (next) So I run
           both on every transcript and merge the results, with the higher-confidence flag
-          winning on overlaps. The rules give a guaranteed floor and full explainability;
+          winning on overlaps. (next) The rules give a guaranteed floor and full explainability;
           the LLM adds nuance. And if OpenAI is down, the run quietly falls back to rules-
           only rather than failing.
         </aside>
@@ -289,13 +289,13 @@
           In plain terms: HR&rsquo;s report is printed on a form with <span class="fh-accent">no space to write a name</span> — so a name can never appear, even by accident.
         </p>
         <aside class="notes">
-          This is the slide I'm proudest of. Naive approach: give HR a broad read and
-          filter columns in the API — but one wrong query leaks a name. Instead, HR reads
-          through a database function whose return type only has aggregate columns. There
+          Now we discuss privacy. Naive approach: give HR a broad read and
+          filter columns in the API — but one wrong query leaks a name. (next) Instead, HR reads
+          through a database function whose return type only has aggregate columns. (next) There
           is literally no field in the result that identifies a manager or shows a quote —
           so it can't leak, even if my API code had a bug. And the manager side is locked
           down by Postgres row-level security, which I verify with tests that literally
-          try to read across tenants and assert they get nothing. Privacy is a property of
+          try to read across tenants and assert they get nothing. (next) Privacy is a property of
           the schema, not a promise in my code.
         </aside>
       </section>
@@ -323,9 +323,9 @@
           <li>Plus a <strong>fairness breakdown</strong> by race &amp; gender, and honest, documented limitations.</li>
         </ul>
         <aside class="notes">
-          A bias tool that is itself biased or noisy is worse than nothing, so I built an
+          A bias tool that is itself biased or noisy is worse than nothing, (next) so I built an
           eval harness. It re-runs the engine against a labelled set and reports precision,
-          recall and F1 per flag type — no single vanity accuracy number. It also breaks
+          recall and F1 per flag type — no single vanity accuracy number. (next) It also breaks
           the results down by demographic so I can check the detector isn't itself skewed,
           and I documented where it's weak. If you want live numbers, run `npm run eval`.
         </aside>
@@ -345,12 +345,12 @@
           One principle underneath all four: augment the manager&rsquo;s judgement — never replace it.
         </p>
         <aside class="notes">
-          This is the analytical spine — the four tensions I laid out in my original
-          proposal, and each one drove a concrete engineering choice you've just seen.
-          Invisible-in-the-moment is why the product reflects rather than asks. Patterns-
-          not-single-calls is why the Mirror exists. The-data-that-helps-can-surveil is why
-          isolation lives in Postgres, not my API code. And subjective-language is why the
-          detector is tuned to stay quiet rather than cry wolf. The one line under all of
+          These are the four tensions I laid out in my original
+          proposal, and each one drove a concrete engineering choice you've just seen. (next)
+          Invisible-in-the-moment is why the product reflects rather than asks. (next) Patterns-
+          not-single-calls is why the Mirror exists. (next) The-data-that-helps-can-surveil is why
+          isolation lives in Postgres, not my API code. (next) And subjective-language is why the
+          detector is tuned to stay quiet rather than cry wolf. (next) The one line under all of
           it: augment judgement, never replace it — the tool never scores or auto-rejects
           anyone.
         </aside>
@@ -378,10 +378,10 @@
         </div>
         <p class="fragment fh-meta" style="margin-top: 22px;">Monorepo · shared Zod types · 350+ automated tests incl. adversarial isolation</p>
         <aside class="notes">
-          Quick tour for the technical folks: a React SPA on Vercel, an Express API on
-          Render, Postgres with row-level security on Supabase. Clerk handles auth.
-          Analysis is asynchronous — you post a debrief, it returns immediately, and the
-          engine works in the background. Shared Zod types keep the front end and API in
+          Quick tour for the technical folks: (next) a React SPA on Vercel, an Express API on
+          Render, Postgres with row-level security on Supabase. (next) Clerk handles auth.
+          (next) Analysis is asynchronous — you post a debrief, it returns immediately, and the
+          engine works in the background. (next) Shared Zod types keep the front end and API in
           lockstep, and there are 350-plus tests including the adversarial isolation ones I
           mentioned.
         </aside>
@@ -398,10 +398,10 @@
           <li class="fragment"><strong>Fine-tuning</strong> on labelled debriefs to lift recall on the subtler categories.</li>
         </ul>
         <aside class="notes">
-          Where I'd take it: connect to the HR systems so it's zero-effort to adopt; move
-          from post-hoc to live so the nudge lands in the moment; and tune the nudge
+          Where I'd take it: (next) connect to the HR systems so it's zero-effort to adopt; (next) move
+          from post-hoc to live so the nudge lands in the moment;(next) and tune the nudge
           thresholds on real organisational data — right now they're intentionally cautious
-          placeholders. Longer term, fine-tune the model on labelled debriefs to catch the
+          placeholders. (next) Longer term, fine-tune the model on labelled debriefs to catch the
           subtler patterns.
         </aside>
       </section>
