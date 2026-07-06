@@ -409,6 +409,68 @@ async function main() {
     }),
   ]);
 
+  // ─── Promotion-mode meetings (Wei Liang Tan) ─────────────────────────────────
+  // Gives the Promotion surface real data to demo. Reuses EXISTING candidates as
+  // promotion targets (no new candidate rows), so the HR demographic pool — and
+  // with it the composition-shift nudge — is unchanged; promotion decisions
+  // (held/in_progress) are excluded from the hired/rejected demographic math too.
+  // All three sit in the current 90-day window so Wei's Promotion Mirror is
+  // populated. Flags (below) lean on confidence_proxy — the presence/gravitas
+  // analogue of Wei's hiring criteria_drift — kept under the HR nudge floors so
+  // the org-level hiring nudges stay put. The Mirror aggregates by mode, so
+  // these never mix into Wei's hiring surface.
+  const jennifer = candidates[7]!; // Jennifer Lee — not linked to any hiring meeting
+
+  // Promotion targets carry current role + tenure so the Promotion companion
+  // header renders them (mirrors the candidate.update the /meetings POST does).
+  await Promise.all([
+    prisma.candidate.update({
+      where: { id: jennifer.id },
+      data: { currentRole: 'Vice President', tenureYears: 6, lastPromotedAt: daysAgo(760) },
+    }),
+    prisma.candidate.update({
+      where: { id: siti.id },
+      data: { currentRole: 'Analyst', tenureYears: 3, lastPromotedAt: daysAgo(410) },
+    }),
+    prisma.candidate.update({
+      where: { id: nurul.id },
+      data: { currentRole: 'Associate Director', tenureYears: 9, lastPromotedAt: daysAgo(900) },
+    }),
+  ]);
+
+  const [m13, m14, m15] = await Promise.all([
+    prisma.meeting.create({
+      data: {
+        orgId: org.id,
+        managerId: wei.id,
+        meetingType: 'promotion',
+        title: 'Promotion Review — Jennifer Lee (VP → MD)',
+        transcript: transcripts.wei_promo_jennifer,
+        date: daysAgo(55), // current window
+      },
+    }),
+    prisma.meeting.create({
+      data: {
+        orgId: org.id,
+        managerId: wei.id,
+        meetingType: 'promotion',
+        title: 'Promotion Review — Siti Nurhaliza (Analyst → Senior Analyst)',
+        transcript: transcripts.wei_promo_siti,
+        date: daysAgo(33), // current window
+      },
+    }),
+    prisma.meeting.create({
+      data: {
+        orgId: org.id,
+        managerId: wei.id,
+        meetingType: 'promotion',
+        title: 'Promotion Review — Nurul Izzah (Associate Director → Director)',
+        transcript: transcripts.wei_promo_nurul,
+        date: daysAgo(16), // current window
+      },
+    }),
+  ]);
+
   // ─── Meeting ↔ Candidate links ───────────────────────────────────────────────
 
   console.log('[seed] Linking candidates to meetings...');
@@ -427,6 +489,10 @@ async function main() {
       { meetingId: m10.id, candidateId: ravi.id },
       { meetingId: m11.id, candidateId: lakshmi.id },
       { meetingId: m12.id, candidateId: kevin.id },
+      // Promotion reviews (Wei)
+      { meetingId: m13.id, candidateId: jennifer.id },
+      { meetingId: m14.id, candidateId: siti.id },
+      { meetingId: m15.id, candidateId: nurul.id },
     ],
   });
 
@@ -531,6 +597,32 @@ async function main() {
         managerId: marcus.id,
         outcome: 'hired',
         notes: 'Unanimous hire. Progressing to offer.',
+      },
+      // Promotion decisions (Wei) — held/in_progress are outside the
+      // hired/rejected demographic aggregate, so the composition nudge is safe.
+      {
+        orgId: org.id,
+        meetingId: m13.id,
+        candidateId: jennifer.id,
+        managerId: wei.id,
+        outcome: 'held',
+        notes: 'Strong performer; held this cycle on presence. Revisit at next committee.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m14.id,
+        candidateId: siti.id,
+        managerId: wei.id,
+        outcome: 'in_progress',
+        notes: 'Revisit once she has led a live process end to end.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m15.id,
+        candidateId: nurul.id,
+        managerId: wei.id,
+        outcome: 'held',
+        notes: 'Strong operator; held on Director-level presence.',
       },
     ],
   });
@@ -959,6 +1051,141 @@ async function main() {
   // their excerpts were positive statements that didn't fit the assigned
   // flagTypes and structurally couldn't be matched by the engine.
 
+  // Wei Liang Tan — promotion-mode flags. confidence_proxy is the dominant
+  // pattern (presence/gravitas), the promotion-vocabulary echo of Wei's hiring
+  // criteria_drift. Each excerpt is a verbatim substring of the matching
+  // wei_promo_* transcript so FlagSpan offsets resolve. Per-type counts stay
+  // below the HR nudge floors — each type < age_bias's current-window 7, and
+  // none reaches the dismissal-rate min of 6 — so the org-level hiring nudges
+  // (dominant-category, dismissal-rate, composition-shift) are unchanged. The
+  // Mirror scopes by mode, so these surface only on the Promotion Mirror.
+  await prisma.flag.createMany({
+    data: [
+      // m13 — Jennifer Lee (VP → MD)
+      {
+        orgId: org.id,
+        meetingId: m13.id,
+        flagType: 'confidence_proxy',
+        excerpt: 'She needs more executive presence before we put her in front of the board.',
+        reasoning:
+          '"Executive presence" gates the decision without a specific, observable behaviour attached. Presence language disproportionately affects women and minorities and often proxies for style rather than capability.',
+        confidenceScore: 0.9,
+        suggestedAlt:
+          'Name the board-facing behaviour required (e.g. leads the room on a live deal review) and assess it directly, rather than citing "presence".',
+      },
+      {
+        orgId: org.id,
+        meetingId: m13.id,
+        flagType: 'peer_comparison_bias',
+        excerpt: 'She is not as polished as Daniel was at the same point in his career.',
+        reasoning:
+          'Readiness is benchmarked against a single named peer rather than the Director-level rubric, importing that person\'s style as the standard.',
+        confidenceScore: 0.88,
+        suggestedAlt: 'Assess against the published level criteria, not against a specific colleague.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m13.id,
+        flagType: 'potential_vs_performance',
+        excerpt: 'She clearly has a high ceiling, but I am not sure she is ready this cycle.',
+        reasoning:
+          'A strong demonstrated performance is discounted in favour of a subjective read on "ceiling" and readiness. Potential framing tends to advantage those who match a prototype.',
+        confidenceScore: 0.78,
+        suggestedAlt:
+          'Anchor the decision on demonstrated results against the level bar rather than a projection of ceiling.',
+      },
+      // m14 — Siti Nurhaliza (Analyst → Senior Analyst)
+      {
+        orgId: org.id,
+        meetingId: m14.id,
+        flagType: 'confidence_proxy',
+        excerpt: 'She lacks gravitas in front of clients.',
+        reasoning:
+          '"Gravitas" is an unspecified trait standing in for demonstrated client outcomes — a classic proxy that penalises quieter or non-prototypical styles.',
+        confidenceScore: 0.85,
+        suggestedAlt:
+          'Point to a specific client interaction and what was missing, or assess measured client outcomes instead.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m14.id,
+        flagType: 'confidence_proxy',
+        excerpt: 'She needs more presence when she presents to the desk.',
+        reasoning:
+          'Presence is cited as a development gap without a concrete, observable behaviour; the signal is about style, not the quality of the analysis being presented.',
+        confidenceScore: 0.9,
+        suggestedAlt:
+          'Specify what "presence" means here (structure, pace, handling challenge) so it can be coached and assessed objectively.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m14.id,
+        flagType: 'confidence_proxy',
+        excerpt: 'She is not assertive enough in the room when senior people push back.',
+        reasoning:
+          'Assertiveness is treated as a readiness criterion. Assertiveness feedback is applied unevenly by gender and can penalise sound analysis delivered without confrontation.',
+        confidenceScore: 0.85,
+        suggestedAlt:
+          'Judge whether she defends her analysis with evidence when challenged, not how forceful the delivery is.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m14.id,
+        flagType: 'potential_vs_performance',
+        excerpt: 'There is a lot of potential here, but the track record is still thin at the level.',
+        reasoning:
+          'Demonstrated technical strength is set aside in favour of a "potential" caveat; where the record is strong, potential framing can understate readiness.',
+        confidenceScore: 0.88,
+        suggestedAlt:
+          'List the concrete deliverables expected at Senior Analyst and check them against her record.',
+      },
+      // m15 — Nurul Izzah (Associate Director → Director)
+      {
+        orgId: org.id,
+        meetingId: m15.id,
+        flagType: 'tenure_framing',
+        excerpt: 'She has been here a long time and has earned her stripes.',
+        reasoning:
+          'Tenure ("earned her stripes") is offered as a rationale. Length of service is not a proxy for readiness at the next level and can mask a thin capability case.',
+        confidenceScore: 0.88,
+        suggestedAlt:
+          'Separate tenure from readiness — evaluate current-level evidence against the Director rubric.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m15.id,
+        flagType: 'confidence_proxy',
+        excerpt: 'She still needs more gravitas to hold the room with clients.',
+        reasoning:
+          '"Gravitas" again gates the decision without a specific behaviour — the same presence proxy recurring across this manager\'s promotion reviews.',
+        confidenceScore: 0.9,
+        suggestedAlt:
+          'Define the client-facing behaviour required at Director and assess it on evidence, not "gravitas".',
+      },
+      {
+        orgId: org.id,
+        meetingId: m15.id,
+        flagType: 'peer_comparison_bias',
+        excerpt: 'Compared to Marcus, she is more tentative when the room gets difficult.',
+        reasoning:
+          'Readiness is benchmarked against a single named colleague rather than the level criteria, importing his style as the bar.',
+        confidenceScore: 0.78,
+        suggestedAlt: 'Compare against the Director-level rubric, not against a specific peer.',
+      },
+      {
+        orgId: org.id,
+        meetingId: m15.id,
+        flagType: 'potential_vs_performance',
+        excerpt: 'She could grow into the role over the next year with the right coaching on executive presence.',
+        reasoning:
+          'A "grow into the role" projection defers a decision the current record may already support, and pairs the deferral with a presence caveat.',
+        confidenceScore: 0.85,
+        suggestedAlt:
+          'Decide on demonstrated Director-level evidence now; scope coaching separately from the readiness call.',
+      },
+    ],
+  });
+
   // ─── Analysis runs ────────────────────────────────────────────────────────────
 
   console.log('[seed] Creating analysis runs...');
@@ -974,6 +1201,7 @@ async function main() {
     [m1, 47_000], [m2, 39_000], [m3, 44_000], [m4, 51_000],
     [m5, 53_000], [m6, 42_000], [m7, 38_000], [m8, 49_000],
     [m9, 55_000], [m10, 46_000], [m11, 40_000], [m12, 41_000],
+    [m13, 45_000], [m14, 43_000], [m15, 50_000], // promotion reviews (Wei)
   ];
 
   await prisma.analysisRun.createMany({

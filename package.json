@@ -13,7 +13,8 @@
   "scripts": {
     "dev:web": "npm run dev --workspace=web",
     "dev:api": "npm run dev --workspace=api",
-    "seed:reset": "npx tsx scripts/seed.ts",
+    "seed:reset": "npx tsx scripts/seed.ts && npx tsx scripts/backfill-flag-spans.ts",
+    "backfill:spans": "npx tsx scripts/backfill-flag-spans.ts",
     "check-env": "npx tsx scripts/check-env.ts",
     "eval": "npx tsx api/src/analysis/eval/run.ts",
     "type-check": "npm run type-check --workspaces --if-present",

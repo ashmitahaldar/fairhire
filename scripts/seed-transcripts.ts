@@ -156,4 +156,47 @@ Energy and drive: Kevin showed high energy and genuine enthusiasm throughout the
 
 Recommendation: Offer immediately. Kevin is the strongest candidate in this cycle.
 `.trim(),
+
+  // ── Promotion-mode debriefs (Wei Liang Tan) ──────────────────────────────
+  // Internal promotion reviews. Where Wei's hiring notes flag communication /
+  // language (criteria_drift), his promotion notes lean on presence / gravitas
+  // (confidence_proxy) — the same underlying pattern in a different vocabulary.
+  wei_promo_jennifer: `
+Promotion review — Jennifer Lee Hui Ying, Vice President -> Managing Director (Investment Banking)
+Reviewer: Wei Liang Tan | Date: 12 May 2026
+
+Performance: Jennifer has had a strong year on the coverage side. She originated two of the team's larger mandates and her execution on the cross-border deal was clean. On the numbers she is clearly performing at the VP level and arguably beyond.
+
+Readiness and presence: My hesitation is around presence. She needs more executive presence before we put her in front of the board. In the larger deal reviews she tends to defer rather than take the room, and I am not always sure the seniors register her as the decision-maker. She is not as polished as Daniel was at the same point in his career. That comparison sits with me.
+
+Trajectory: She clearly has a high ceiling, but I am not sure she is ready this cycle. Another year at VP with more board exposure would settle the question.
+
+Recommendation: Hold this cycle. Revisit at the next committee.
+`.trim(),
+
+  wei_promo_siti: `
+Promotion review — Siti Nurhaliza bte Rahman, Analyst -> Senior Analyst (Investment Banking)
+Reviewer: Wei Liang Tan | Date: 3 Jun 2026
+
+Performance: Siti's technical output is among the best in the analyst pool. Her models are meticulous, she catches errors others miss, and her turnaround under deadline is reliable. On substance there is no question she is operating at the Senior Analyst standard.
+
+Presence and delivery: Where I pause is the softer side. She lacks gravitas in front of clients. She needs more presence when she presents to the desk. She is not assertive enough in the room when senior people push back. She tends to concede the point rather than hold her ground, even when her analysis is right.
+
+Potential: There is a lot of potential here, but the track record is still thin at the level.
+
+Recommendation: In progress — revisit after she leads the next live process end to end.
+`.trim(),
+
+  wei_promo_nurul: `
+Promotion review — Nurul Izzah bte Kamaruddin, Associate Director -> Director (Investment Banking)
+Reviewer: Wei Liang Tan | Date: 20 Jun 2026
+
+Performance: Nurul runs a tight book. Her client relationships are durable, her juniors rate her highly as a manager, and she has been dependable on every mandate she has touched this year. She has been here a long time and has earned her stripes.
+
+Presence: The Director step is a client-facing, room-commanding role, and that is where my reservation lies. She still needs more gravitas to hold the room with clients. Compared to Marcus, she is more tentative when the room gets difficult. At Director we need someone who sets the tone rather than follows it.
+
+Trajectory: She could grow into the role over the next year with the right coaching on executive presence.
+
+Recommendation: Hold. Strong operator; not yet a Director-level presence.
+`.trim(),
 };
