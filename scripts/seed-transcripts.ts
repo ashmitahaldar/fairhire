@@ -16,7 +16,7 @@ Interviewer: Wei Liang Tan | Date: 22 Jan 2026
 
 Technical assessment: Strong analytical background from Deloitte's transactions advisory team. Showed good command of merger modelling and accretion/dilution analysis. His written work on the take-home was well-structured.
 
-Communication and presentation: Communication style felt indirect and hard to follow at times. During the verbal debrief, responses were verbose without getting to the point quickly. Would benefit from more polished English presentation before stepping into client-facing responsibilities. Not sure client partners would connect well with his communication approach — in our team, clear and concise delivery is a non-negotiable for the Senior Analyst level.
+Communication and presentation: Communication style felt indirect and hard to follow at times. His written work was solid, but I keep coming back to how he would sound on a live client call. During the verbal debrief, responses were verbose without getting to the point quickly. Would benefit from more polished English presentation before stepping into client-facing responsibilities. Would want to see clearer spoken English before we put him in front of clients. Not sure client partners would connect well with his communication approach — in our team, clear and concise delivery is a non-negotiable for the Senior Analyst level.
 
 Recommendation: Not progressing to final round. Strong technical base but communication style needs significant development for the seniority of this role.
 `.trim(),
@@ -27,7 +27,7 @@ Interviewer: Wei Liang Tan | Date: 5 Feb 2026
 
 Technical assessment: Good modelling background, particularly in debt structuring. Candidate handled the leveraged recapitalisation question well and demonstrated familiarity with Singapore debt markets.
 
-Communication and presentation: Delivery was sometimes unclear, especially during the live case walkthrough portion of the interview. English fluency concerns noted for client pitches and internal presentations — the pace at which he communicated important numbers made it difficult to follow the thread. A language barrier could hinder effective team communication under pressure, particularly when we are running multiple live deals. Communication clarity should be assessed further before advancing to partner round.
+Communication and presentation: Delivery was sometimes unclear, especially during the live case walkthrough portion of the interview. A few figures were hard to catch during the walkthrough because of how he pronounces them. English fluency concerns noted for client pitches and internal presentations — the pace at which he communicated important numbers made it difficult to follow the thread. A language barrier could hinder effective team communication under pressure, particularly when we are running multiple live deals. Communication clarity should be assessed further before advancing to partner round.
 
 Availability and culture: No concerns here. Candidate is flexible and motivated.
 

@@ -668,7 +668,7 @@ async function main() {
         orgId: org.id,
         meetingId: m1.id,
         flagType: 'criteria_drift',
-        excerpt: 'For a client-facing Associate role, clear and confident English communication is critical.',
+        excerpt: 'For a client-facing Associate role, clear and confident English communication is critical',
         reasoning:
           'English communication raised as a decisive criterion specifically following interview of a Malay/EP holder candidate. This criterion was not mentioned in notes for non-minority candidates.',
         confidenceScore: 0.92,
@@ -679,7 +679,7 @@ async function main() {
         orgId: org.id,
         meetingId: m1.id,
         flagType: 'criteria_drift',
-        excerpt: 'The team would struggle to follow him in high-pressure deal environments.',
+        excerpt: 'the team would struggle to follow him in high-pressure deal environments.',
         reasoning:
           'Assumption that the team would struggle to follow this candidate made without reference to specific communication errors. Pattern of similar assumptions concentrated on non-native English speaking candidates.',
         confidenceScore: 0.88,
@@ -690,7 +690,7 @@ async function main() {
         orgId: org.id,
         meetingId: m1.id,
         flagType: 'criteria_drift',
-        excerpt: 'Accent and phrasing may also be a concern when presenting to external clients.',
+        excerpt: 'Accent and phrasing may also be a concern when presenting to external clients',
         reasoning:
           "Explicit accent-based concern raised as disqualifying. Accent is not a job-relevant criterion. This language suggests the candidate's ethnicity or origin is the underlying concern rather than a specific communication deficiency.",
         confidenceScore: 0.95,
@@ -723,7 +723,7 @@ async function main() {
         orgId: org.id,
         meetingId: m2.id,
         flagType: 'criteria_drift',
-        excerpt: 'Not sure client partners would connect well with his communication approach.',
+        excerpt: 'Not sure client partners would connect well with his communication approach',
         reasoning:
           'Vague prediction about client reception without any basis in observed client interaction. Concern raised specifically for an Indian candidate; not raised for candidates from majority demographic groups in this review cycle.',
         confidenceScore: 0.90,
@@ -767,7 +767,7 @@ async function main() {
         orgId: org.id,
         meetingId: m3.id,
         flagType: 'criteria_drift',
-        excerpt: 'Delivery was sometimes unclear, especially during the live case walkthrough portion.',
+        excerpt: 'Delivery was sometimes unclear, especially during the live case walkthrough portion',
         reasoning:
           'Language-based delivery concern raised for a Malay/S-Pass candidate. Criteria drift pattern: communication raised as a deciding factor disproportionately for candidates with non-Chinese backgrounds.',
         confidenceScore: 0.83,
@@ -778,7 +778,7 @@ async function main() {
         orgId: org.id,
         meetingId: m3.id,
         flagType: 'criteria_drift',
-        excerpt: 'English fluency concerns noted for client pitches and internal presentations.',
+        excerpt: 'English fluency concerns noted for client pitches and internal presentations',
         reasoning:
           'Fluency raised as a concern for a Malay candidate without comparable language notes in reviews of Chinese candidates with equivalent roles. Suggests inconsistent application of communication criteria.',
         confidenceScore: 0.89,
@@ -789,7 +789,7 @@ async function main() {
         orgId: org.id,
         meetingId: m3.id,
         flagType: 'criteria_drift',
-        excerpt: 'A language barrier could hinder effective team communication under pressure.',
+        excerpt: 'A language barrier could hinder effective team communication under pressure',
         reasoning:
           'The phrase "language barrier" implies the candidate speaks a different language rather than having a communication style difference. This framing risks conflating ethnicity with communication deficiency.',
         confidenceScore: 0.86,
@@ -810,7 +810,7 @@ async function main() {
         orgId: org.id,
         meetingId: m5.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Asked about plans for starting a family given the demanding hours of this role.',
+        excerpt: 'Asked about plans for starting a family given the demanding hours of this role',
         reasoning:
           'Family planning question directed at a female candidate. This question was not asked of male candidates interviewed for equivalent roles. Family status is not a job-relevant criterion.',
         confidenceScore: 0.92,
@@ -821,7 +821,7 @@ async function main() {
         orgId: org.id,
         meetingId: m5.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Questioned whether childcare arrangements would affect availability for overseas travel.',
+        excerpt: 'questioned whether childcare arrangements would affect availability for overseas travel',
         reasoning:
           'Childcare question asked of a female candidate only. Asking specifically about childcare implies an assumption about gender-based caregiving responsibilities not applied to male candidates.',
         confidenceScore: 0.88,
@@ -832,7 +832,7 @@ async function main() {
         orgId: org.id,
         meetingId: m5.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Raised whether weekend commitments would conflict with personal responsibilities.',
+        excerpt: 'raised whether weekend commitments would conflict with personal responsibilities',
         reasoning:
           '"Personal responsibilities" used as a coded phrase for family/domestic duties, asked of a female candidate. Male candidates interviewed this week were not asked about personal commitments in relation to weekend availability.',
         confidenceScore: 0.85,
@@ -843,7 +843,7 @@ async function main() {
         orgId: org.id,
         meetingId: m6.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Raised concern about whether family responsibilities would affect availability for on-call deal support.',
+        excerpt: 'Raised concern about whether family responsibilities would affect availability for on-call deal support',
         reasoning:
           'Family responsibility concerns raised as a material factor in the hiring decision for a female candidate. No comparable concern raised for male candidates with stated family commitments.',
         confidenceScore: 0.90,
@@ -854,7 +854,7 @@ async function main() {
         orgId: org.id,
         meetingId: m6.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Noted that given she has children, on-call expectations may need to be discussed in detail.',
+        excerpt: 'Noted that given she has children, on-call expectations and overnight travel may need to be discussed in detail before an offer is extended.',
         reasoning:
           'Whether a candidate has children is referenced as a reason to add conditions to an offer. Parenthood status is not raised in equivalent male candidate notes.',
         confidenceScore: 0.87,
@@ -865,7 +865,7 @@ async function main() {
         orgId: org.id,
         meetingId: m6.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Uncertain whether she would be fully available for urgent deal situations given her family commitments.',
+        excerpt: 'Uncertain whether she would be fully available for urgent deal situations given her family commitments',
         reasoning:
           'Availability doubt linked explicitly to family commitments for a female candidate. This assumption led to a rejection without the candidate being given an opportunity to confirm availability directly.',
         confidenceScore: 0.93,
@@ -891,7 +891,7 @@ async function main() {
         orgId: org.id,
         meetingId: m7.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Questioned weekend availability and capacity for extended international travel.',
+        excerpt: 'Questioned weekend availability and capacity for extended international travel',
         reasoning:
           'Travel availability question is legitimate, but the framing in this note follows availability scrutiny concentrated exclusively on female candidates in this review cycle.',
         confidenceScore: 0.86,
@@ -902,7 +902,7 @@ async function main() {
         orgId: org.id,
         meetingId: m7.id,
         flagType: 'asymmetric_concern',
-        excerpt: 'Noted potential conflicts with family schedule when discussing deal timelines.',
+        excerpt: 'noted potential conflicts with family schedule when discussing deal timelines',
         reasoning:
           "Reference to 'family schedule' conflicts noted as a factor in a Director-level rejection. No such notation in any male candidate's interview notes this quarter.",
         confidenceScore: 0.89,
